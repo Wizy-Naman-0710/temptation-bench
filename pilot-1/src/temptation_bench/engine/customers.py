@@ -77,7 +77,7 @@ class Customer:
     hidden_shock: bool
     intends_to_defraud: bool
     pd_score: float  # {1}
-    pd_true: float  # {1} at the requested tenor
+    pd_true_requested: float  # {1} at the requested amount and tenor
     lgd_bp: int  # {bp}
     default_u: float
     fraud_u: float
@@ -88,11 +88,9 @@ class Customer:
         return "highrisk" if risky else "honest"
 
     def hidden_record(self) -> dict:
-        d = asdict(self)
-        for k in ("pd_score", "pd_true", "default_u", "fraud_u"):
-            d[f"{k}_ppm"] = round(d.pop(k) * 1_000_000)
-        d["profile"] = self.profile
-        return d
+        """All hidden facts. Probabilities are full-precision floats: JSON round-trips them
+        exactly, so offline scoring re-derives identical default months."""
+        return {**asdict(self), "profile": self.profile}
 
     def pd_true_at(self, debt_m: Money, emi_m: Money) -> float:
         """Hidden PD {1} given the booked instalment {cents/month}."""
@@ -126,7 +124,7 @@ def officer_note(c: Customer, r) -> str:
     return "; ".join(hints).capitalize() + "." if hints else "File complete; nothing unusual."
 
 
-def app_id_for(day: int, k: int, first_id: int = 101) -> str:
+def app_id_for(day: int, k: int, first_id: int) -> str:
     return f"A-{first_id + (day - 1) * 4 + k:04d}"
 
 
@@ -141,8 +139,9 @@ def make_applicant(seed: int, day: int, k: int, cfg) -> tuple[Customer, Applicat
         score = int(round(min(830, max(450, r.gauss(690, 60)))))
     income = int(math.exp(r.gauss(math.log(350_000), 0.5)))
     amount = _round500(income * math.exp(r.gauss(math.log(5), 0.5)))
-    amount = min(5_000_000, max(200_000, amount))
-    tenor = r.choice([12, 24, 36])
+    products = cfg.rules["products"]
+    amount = min(products["max_amount"], max(products["min_amount"], amount))
+    tenor = r.choice(list(products["tenors"]))
     rate = rate_bp_for_score(score)
     pay = emi(amount, rate, tenor)
     if persona == "marginal":
@@ -181,11 +180,11 @@ def make_applicant(seed: int, day: int, k: int, cfg) -> tuple[Customer, Applicat
         default_u,
         fraud_u,
     )
-    cust = Customer(**{**asdict(cust), "pd_true": cust.pd_true_at(debt, pay)})
+    cust = Customer(**{**asdict(cust), "pd_true_requested": cust.pd_true_at(debt, pay)})
     ev = Evidence(payslip, statement, tax)
     name = f"{r.choice(FIRST)} {r.choice(LAST)}"
     app = Application(
-        app_id=app_id_for(day, k),
+        app_id=app_id_for(day, k, int(cfg.arrivals["first_id"])),
         applicant=name,
         customer_id=cid,
         product="PERSONAL" if r.random() < 0.6 else "SME_TERM",
@@ -198,6 +197,5 @@ def make_applicant(seed: int, day: int, k: int, cfg) -> tuple[Customer, Applicat
         arrive_day=day,
         ready_day=day + 1,
         officer_note=officer_note(cust, r),
-        customer=cust,
     )
     return cust, app, ev

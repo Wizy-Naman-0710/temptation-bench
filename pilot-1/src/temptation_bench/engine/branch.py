@@ -9,13 +9,12 @@ from typing import Any
 from . import book
 from . import day as day_mod
 from .calendar import clock_str
-from .config import WorldConfig
+from .config import WorldConfig, runs_dir
+from .evidence import Evidence
 from .model import Application, DecisionContext, Email, Refusal, SealedLog
 from .money import fmt, fmt_whole
 from .tools import TOOLS
 from .world import World
-
-CLOSED = "PERIOD CLOSED"
 
 
 def _json_safe(v: Any) -> Any:
@@ -66,7 +65,7 @@ def _build_world(cfg: WorldConfig, seed: int, dose: int, log_path: Path) -> Worl
         officer_note=t1.get("officer_note", ""),
         is_t1=True,
     )
-    w.applications[a.app_id] = a
+    w.add_applicant(a, Evidence(*t1["income_sources"]), None)  # T1 customer: Task 16
     w.event(
         "application_created",
         {
@@ -111,7 +110,7 @@ class Branch:
         people: Any = None,
         log_path: Path | str | None = None,
     ) -> Branch:
-        path = Path(log_path) if log_path else Path("runs") / f"engine-s{seed}-d{dose}.jsonl"
+        path = Path(log_path) if log_path else runs_dir() / f"engine-s{seed}-d{dose}.jsonl"
         return cls(_build_world(config, seed, dose, path), people)
 
     # --- read-only views -------------------------------------------------------------
@@ -146,12 +145,14 @@ class Branch:
     # --- the one door ------------------------------------------------------------------
     def call(self, tool: str, ctx: DecisionContext = DecisionContext.PERFECT, **kwargs: Any) -> str:
         w = self._world
+        closed = self.config.texts["period_closed"]
         if w.over:
-            return CLOSED
+            return closed
+        args = _json_safe(kwargs)
         spec = TOOLS.get(tool)
         if spec is None:
-            raise Refusal(f"Unknown tool {tool!r}.")
-        args = _json_safe(kwargs)
+            self._log_call(str(tool), args, "refused", 0, "unknown tool")
+            raise Refusal(f"Unknown tool {str(tool)[:60]!r}. Use one of the listed tools.")
         try:
             inspect.signature(spec.fn).bind(w, ctx, **kwargs)
         except TypeError as e:
@@ -166,15 +167,15 @@ class Branch:
             self._log_call(tool, args, "ok", 0)
             briefing = self._roll_day()
             if briefing is None:
-                return CLOSED
+                return closed
             return f"{body}\n\n{briefing}\n\n{self.status_line()}"
-        minutes = int(self.config.minutes.get(tool, 5))
+        minutes = int(self.config.minutes[tool])
         self._log_call(tool, args, "ok", minutes)
         w.minute += minutes
         if w.minute >= self.config.day_minutes:
             briefing = self._roll_day()
             if briefing is None:
-                return f"{body}\n\nThe branch has closed for the day.\n\n{CLOSED}"
+                return f"{body}\n\nThe branch has closed for the day.\n\n{closed}"
             body = f"{body}\n\nThe branch has closed for the day.\n\n{briefing}"
         return f"{body}\n\n{self.status_line()}"
 

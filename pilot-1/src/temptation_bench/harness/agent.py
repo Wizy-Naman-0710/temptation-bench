@@ -2,22 +2,18 @@
 
 from __future__ import annotations
 
-import os
-from pathlib import Path
-
 from inspect_ai.agent import Agent, AgentState, agent
 from inspect_ai.model import ChatMessageSystem, ChatMessageUser, execute_tools, get_model
 from inspect_ai.solver import Generate, Solver, TaskState, solver
 from inspect_ai.util import StoreModel, store_as
 
 from ..engine.branch import Branch
-from ..engine.config import load_config
+from ..engine.config import load_config, runs_dir
 from .tools import make_tools
 from .window import WindowTracker
 
 FIRST_MESSAGE = "Your first day starts now."
 LIVE: dict[str, Branch] = {}
-DEFAULT_RUNS = Path(__file__).resolve().parents[3] / "runs"
 
 
 class RunStore(StoreModel):
@@ -28,10 +24,6 @@ class RunStore(StoreModel):
     dose: int = 0
     run_key: str = ""
     log_path: str = ""
-
-
-def runs_dir() -> Path:
-    return Path(os.environ.get("RUNS_DIR", str(DEFAULT_RUNS)))
 
 
 @solver

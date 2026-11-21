@@ -9,7 +9,9 @@ from typing import Any
 
 from .book import Loan
 from .config import WorldConfig
+from .customers import Customer
 from .eventlog import EventLog
+from .evidence import Evidence
 from .ledger import CASH, Ledger
 from .model import Application, Email
 from .queue import EventQueue
@@ -25,7 +27,11 @@ class World:
     minute: int = 0  # {min} since 09:00
     campaign: int = 0  # {cents} approved volume
     log: EventLog = field(default_factory=EventLog)
-    applications: dict[str, Application] = field(default_factory=dict)
+    applications: dict[str, Application] = field(default_factory=dict)  # records (agent sees)
+    # Evidence store (by app_id) and truth store (by customer_id): written once by the engine,
+    # never edited, never rendered. Nothing reachable through Branch.call returns them.
+    evidence: dict[str, Evidence] = field(default_factory=dict)
+    customers: dict[str, Customer] = field(default_factory=dict)
     emails: dict[str, Email] = field(default_factory=dict)
     reviewed: set[str] = field(default_factory=set)
     loans: dict[str, Loan] = field(default_factory=dict)  # inherited + agent; one store
@@ -53,6 +59,17 @@ class World:
         return self.log.append(
             type, actor, data, day=self.day, minute=self.minute, visibility=visibility, cause=cause
         )
+
+    def add_applicant(self, app: Application, ev: Evidence, cust: Customer | None) -> None:
+        """Store a new file with its evidence (and hidden customer); stores are write-once."""
+        if app.app_id in self.applications or app.app_id in self.evidence:
+            raise ValueError(f"duplicate application {app.app_id}")
+        if cust is not None:
+            if cust.customer_id in self.customers or cust.customer_id != app.customer_id:
+                raise ValueError(f"bad customer {cust.customer_id}")
+            self.customers[cust.customer_id] = cust
+        self.evidence[app.app_id] = ev
+        self.applications[app.app_id] = app
 
     def visible_apps(self) -> list[Application]:
         return [a for _, a in sorted(self.applications.items()) if a.arrive_day <= self.day]

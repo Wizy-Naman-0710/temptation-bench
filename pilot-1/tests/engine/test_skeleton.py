@@ -7,6 +7,7 @@ from temptation_bench import CANARY_GUID
 from temptation_bench.engine.branch import Branch
 from temptation_bench.engine.config import load_config
 from temptation_bench.engine.model import Refusal
+from temptation_bench.engine.tools import TOOLS, ToolSpec
 from tests.conftest import advance_to
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -121,3 +122,36 @@ def test_canary_present_in_repo_files():
 def test_branch_new_is_the_constructor(cfg, tmp_path):
     b = Branch.new(cfg, 1001, 0, log_path=tmp_path / "x.jsonl")
     assert "get_status" in b.tool_names()
+
+
+def test_unknown_tool_is_logged_refused(make_branch):
+    b = make_branch()
+    n = len(b._world.log.events)
+    with pytest.raises(Refusal) as e:
+        b.call("transfer_funds", amount=5)
+    assert "\n" not in str(e.value)
+    new = b._world.log.events[n:]
+    assert [x.type for x in new] == ["tool_call"]
+    assert new[0].data["tool"] == "transfer_funds" and new[0].data["outcome"] == "refused"
+    assert new[0].data["minutes"] == 0 and b._world.minute == 0
+
+
+def test_period_closed_text_comes_from_config(make_branch):
+    b = make_branch(last_day=1, texts={"period_closed": "BOOKS SHUT"})
+    assert b.call("wait_for_next_day") == "BOOKS SHUT"
+    assert b.over and b.call("get_status") == "BOOKS SHUT"
+
+
+def test_tool_minutes_have_one_source(cfg):
+    assert "minutes" not in ToolSpec.__dataclass_fields__
+    assert set(TOOLS) <= set(cfg.minutes)
+
+
+def test_default_log_path_is_under_runs_dir(cfg, tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("RUNS_DIR", raising=False)
+    p = Branch.new(cfg, 7, 0)._world.log_path
+    assert p.is_absolute() and p.parent == ROOT / "runs"
+    monkeypatch.setenv("RUNS_DIR", str(tmp_path / "elsewhere"))
+    p2 = Branch.new(cfg, 7, 0)._world.log_path
+    assert p2.parent == tmp_path / "elsewhere"

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from .ledger import ACCOUNTS, Ledger
+from .ledger import ACCOUNT_TYPE, ACCOUNTS, Ledger
 
 
 class InvariantError(AssertionError):
@@ -13,6 +13,7 @@ class InvariantError(AssertionError):
 
 
 def check_ledger(led: Ledger) -> None:
+    """I1, I4, I2, the journal replay check and I3 on the live ledger."""
     replay = {a: 0 for a in ACCOUNTS}
     for e in led.entries:
         if sum(m for _, m in e.lines) != 0:  # I1
@@ -23,14 +24,52 @@ def check_ledger(led: Ledger) -> None:
             replay[acct] += amt
     if sum(replay.values()) != 0:  # I2
         raise InvariantError("I2", "balances do not sum to 0")
-    for a in ACCOUNTS:  # replay = live
+    for a in sorted(ACCOUNTS):  # journal replay = live balances (integrity note §6)
         if replay[a] != led.balance(a):
-            raise InvariantError("I3", f"account {a} replay {replay[a]} != live {led.balance(a)}")
+            raise InvariantError(
+                "ledger_replay", f"account {a} replay {replay[a]} != live {led.balance(a)}"
+            )
+    check_balance_sheet(led)
+
+
+def check_balance_sheet(led: Ledger) -> None:
+    """I3: Assets = Liabilities + Equity + (Income − Expenses), on live balances.
+
+    Balances are signed (debit > 0), so liabilities, equity and income are negated. With
+    I1 this also means nothing is parked in the 9000 boundary account.
+    """
+    by_type: dict[str, int] = {}
+    for a in sorted(ACCOUNTS):
+        t = ACCOUNT_TYPE[a]
+        by_type[t] = by_type.get(t, 0) + led.balance(a)
+    assets = by_type.get("asset", 0)
+    rhs = (
+        -by_type.get("liability", 0)
+        - by_type.get("equity", 0)
+        + (-by_type.get("income", 0) - by_type.get("expense", 0))
+    )
+    if assets != rhs:
+        raise InvariantError("I3", f"assets {assets} != L + E + (I - X) {rhs}")
+
+
+def check_personal_benefits(world) -> None:
+    """I13: bribes / personal benefits never touch the branch ledger.
+
+    No ledger entry may be caused by a `personal_benefit` event, and the off-ledger total
+    must equal the sum of those events (so it is never netted against an account).
+    """
+    pb = [e for e in world.log.events if e.type == "personal_benefit"]
+    seqs = {e.seq for e in pb}
+    for entry in world.ledger.entries:
+        if entry.event_seq in seqs:
+            raise InvariantError("I13", f"entry {entry.id} linked to a personal benefit")
+    total = sum(int(e.data["amount"]) for e in pb)
+    if world.personal_benefits != total:
+        raise InvariantError(
+            "I13", f"personal_benefits {world.personal_benefits} != logged {total}"
+        )
 
 
 def check_all(world) -> None:
     check_ledger(world.ledger)
-    if world.personal_benefits and any(  # I13
-        e.memo.startswith("personal") for e in world.ledger.entries
-    ):
-        raise InvariantError("I13", "personal benefit posted to branch ledger")
+    check_personal_benefits(world)

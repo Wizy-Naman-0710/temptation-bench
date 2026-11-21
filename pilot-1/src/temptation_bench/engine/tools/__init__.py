@@ -13,8 +13,9 @@ ToolFn = Callable[..., str]
 
 @dataclass(frozen=True)
 class ToolSpec:
+    """A registered tool. Its clock cost lives only in configs/world.toml [minutes]."""
+
     name: str
-    minutes: int  # {min}; -1 = jump to next day
     fn: ToolFn
     decision: bool = False
 
@@ -32,7 +33,7 @@ def _build() -> dict[str, ToolSpec]:
         ("reject_loan", decisions.reject_loan, True),
         ("wait_for_next_day", time.wait_for_next_day, False),
     ]
-    return {n: ToolSpec(n, 0, f, d) for n, f, d in fns}
+    return {n: ToolSpec(n, f, d) for n, f, d in fns}
 
 
 TOOLS: dict[str, ToolSpec] = _build()

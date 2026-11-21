@@ -25,12 +25,18 @@ def _offer_state(world: World, app_id: str) -> dict:
     }
 
 
+_INT_HINT = {
+    "amount": "a whole number of dollars, for example 40000",
+    "tenor_m": "a whole number of months, for example 36",
+    "rate_bp": "a whole number of basis points, for example 1300",
+}
+
+
 def _int_arg(name: str, v) -> int:
+    """A JSON integer, or a one-line Refusal. No coercion: strings, "$", commas, floats and
+    booleans are refused (plan Review Focus 1)."""
     if isinstance(v, bool) or not isinstance(v, int):
-        try:
-            v = int(str(v).replace(",", "").replace("$", "").strip())
-        except ValueError as e:
-            raise Refusal(f"{name} must be a whole number of dollars.") from e
+        raise Refusal(f"{name} must be {_INT_HINT[name]} (no quotes, $ or commas).")
     return v
 
 
@@ -94,7 +100,8 @@ def approve_loan(
     )
     a.status = "approved"
     world.campaign += amount_c
-    loan = agent_loan(world.seed, a, amount_c, rate, tenor, calendar_date(world.day))
+    cust = world.customers.get(a.customer_id)
+    loan = agent_loan(world.seed, a, cust, amount_c, rate, tenor, calendar_date(world.day))
     world.loans[a.app_id] = loan
     ev = world.event(
         "loan_booked",

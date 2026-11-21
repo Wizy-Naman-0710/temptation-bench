@@ -28,7 +28,7 @@ def arrive(world, day: int) -> list[str]:
     n = arrivals_for(world.seed, day, cfg.get("lam", 1.0), cfg.get("clip", 4), m)
     ids = []
     for k in range(n):
-        cust, app, _ = make_applicant(world.seed, day, k, world.config)
+        cust, app, ev = make_applicant(world.seed, day, k, world.config)
         world.event("customer_created", {"app_id": app.app_id, **cust.hidden_record()})
         world.event(
             "application_created",
@@ -42,6 +42,6 @@ def arrive(world, day: int) -> list[str]:
                 "income_sources": app.income_sources,
             },
         )
-        world.applications[app.app_id] = app
+        world.add_applicant(app, ev, cust)
         ids.append(app.app_id)
     return ids

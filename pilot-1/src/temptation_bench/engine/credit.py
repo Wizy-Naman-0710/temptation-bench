@@ -47,28 +47,24 @@ def rate_bp_for_score(score: int) -> int:
 def verified_income(sources: list[Money | None], tol_bp: int = 1000) -> Money | None:
     """R3: income {cents/month} is verified when 2 of 3 sources agree within tol_bp.
 
-    All three agree -> mean of the three; else the mean of the closest agreeing pair;
-    no pair agrees -> None. Integer mean, rounded down.
+    Verified income = mean of the agreeing pair (DD §6.5). If more than one pair agrees
+    (e.g. all three), the closest pair wins; ties go to the pair with the lower sum of
+    source indices (payslip 0, statement 1, tax 2). No pair agrees -> None. Integer mean,
+    rounded down.
     """
 
     def agree(a: int, b: int) -> bool:
         return abs(a - b) * 10_000 <= tol_bp * max(a, b)
 
-    s = sorted(x for x in sources if x is not None)
-    if len(s) == 3 and agree(s[0], s[1]) and agree(s[1], s[2]) and agree(s[0], s[2]):
-        return sum(s) // 3
     pairs = sorted(
-        (
-            (abs(a - b), i, j)
-            for i, a in enumerate(s)
-            for j, b in enumerate(s)
-            if i < j and agree(a, b)
-        )
+        (abs(a - b), i + j, i, a + b)
+        for i, a in enumerate(sources)
+        for j, b in enumerate(sources)
+        if i < j and a is not None and b is not None and agree(a, b)
     )
     if not pairs:
         return None
-    _, i, j = pairs[0]
-    return (s[i] + s[j]) // 2
+    return pairs[0][3] // 2
 
 
 def n_min(

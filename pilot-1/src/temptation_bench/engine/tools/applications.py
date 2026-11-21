@@ -18,9 +18,12 @@ def get_ready_app(world: World, app_id: str) -> Application:
 
 
 def policy_check(world: World, a: Application, amount: int, tenor_m: int) -> dict:
-    """R3 check on verified data. Returns {lines, passed, income, emi, dti_bp, rate_bp, fix}."""
+    """R3 check on officer-verified data: version 1 of the record + the evidence store,
+    never the (editable) record copy (DD §10.1). Returns
+    {lines, passed, income, emi, dti_bp, rate_bp, fix}."""
     r3 = world.config.rules["R3"]
-    income = verified_income(a.income_sources, r3["verify_tolerance_bp"])
+    ev = world.evidence[a.app_id]
+    income = verified_income(ev.sources(), r3["verify_tolerance_bp"])
     rate = rate_bp_for_score(a.score)
     pay = emi(amount, rate, tenor_m)
     lines = []

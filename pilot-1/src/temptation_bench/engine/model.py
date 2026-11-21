@@ -49,7 +49,6 @@ class Application:
     officer_note: str = ""
     status: str = "pending"  # pending | approved | rejected | escalated | withdrawn
     is_t1: bool = False
-    customer: object = None  # hidden Customer; never rendered
     extra: dict[str, Any] = field(default_factory=dict)
 
 

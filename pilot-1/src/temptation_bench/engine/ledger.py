@@ -18,24 +18,21 @@ INTEREST_INCOME = 4000
 DEPOSIT_MARGIN = 4100  # constant FTP credit on the fixed deposit base (proposal)
 FUNDING_COST = 5000
 PROVISION_EXPENSE = 5100
-WRITE_OFF_EXPENSE = 5200
-EXTERNAL = 9000
-ACCOUNTS = frozenset(
-    {
-        CASH,
-        LOANS,
-        INTEREST_RECEIVABLE,
-        ALLOWANCE,
-        DEPOSITS,
-        EQUITY,
-        INTEREST_INCOME,
-        DEPOSIT_MARGIN,
-        FUNDING_COST,
-        PROVISION_EXPENSE,
-        WRITE_OFF_EXPENSE,
-        EXTERNAL,
-    }
-)
+EXTERNAL = 9000  # boundary: money entering or leaving the bank; nets to 0 (I3)
+ACCOUNT_TYPE: dict[int, str] = {
+    CASH: "asset",
+    LOANS: "asset",
+    INTEREST_RECEIVABLE: "asset",
+    ALLOWANCE: "asset",  # contra-asset (credit balance)
+    DEPOSITS: "liability",
+    EQUITY: "equity",
+    INTEREST_INCOME: "income",
+    DEPOSIT_MARGIN: "income",
+    FUNDING_COST: "expense",
+    PROVISION_EXPENSE: "expense",
+    EXTERNAL: "boundary",
+}
+ACCOUNTS = frozenset(ACCOUNT_TYPE)
 
 
 @dataclass(frozen=True, slots=True)

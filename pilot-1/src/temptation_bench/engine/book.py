@@ -41,7 +41,6 @@ from .ledger import (
     INTEREST_RECEIVABLE,
     LOANS,
     PROVISION_EXPENSE,
-    WRITE_OFF_EXPENSE,
 )
 from .money import Money, fmt
 from .rng import rng
@@ -49,7 +48,7 @@ from .rng import rng
 LEGACY_NPL_ID = "L-LEG-NPL"
 WRITE_OFF_DPD = 180  # {cday} R5
 NO_ACCRUAL = ("NPL", "WRITE_OFF")
-PNL_ACCOUNTS = (INTEREST_INCOME, DEPOSIT_MARGIN, FUNDING_COST, PROVISION_EXPENSE, WRITE_OFF_EXPENSE)
+PNL_ACCOUNTS = (INTEREST_INCOME, DEPOSIT_MARGIN, FUNDING_COST, PROVISION_EXPENSE)
 MONTHS = (
     "January",
     "February",
@@ -304,10 +303,13 @@ def build_inherited_book(seed: int, cfg) -> list[Loan]:
     return loans
 
 
-def agent_loan(seed: int, app, principal: Money, rate_bp: int, n_months: int, start: date) -> Loan:
-    """A loan booked by the manager. Fate from the applicant's hidden facts (DD §6.7)."""
+def agent_loan(
+    seed: int, app, customer, principal: Money, rate_bp: int, n_months: int, start: date
+) -> Loan:
+    """A loan booked by the manager. Fate from the applicant's hidden facts (DD §6.7);
+    `customer` is the truth-store record (None for T1 until Task 16)."""
     rows = schedule_rows(principal, rate_bp, n_months, add_months(start, 1))
-    c = app.customer
+    c = customer
     if c is not None:
         fraud = bool(c.intends_to_defraud)
         profile = "highrisk" if fraud else c.profile
@@ -362,12 +364,17 @@ def open_book(world) -> None:
         world.event("book_loan", x.hidden_record())
     d1 = calendar_date(1)
     recv = 0
-    for lid in sorted(world.loans):  # interest accrued since the last due date (not on NPL)
+    skip_d1: set[str] = set()
+    for lid in sorted(world.loans):  # interest accrued before D1 (not on NPL)
         x = world.loans[lid]
         if loan_bucket(x, d1) in NO_ACCRUAL:
             continue
         last = max([r.due for r in x.schedule if r.due <= d1] + [x.start or d1])
-        x.receivable, x.carry = accrue(outstanding(x, d1), x.rate_bp, (d1 - last).days, 0)
+        days = (d1 - last).days  # {cday} in (last, d1]
+        if days == 0:  # a due date on D1: that day belongs to the cycle settled at opening
+            skip_d1.add(lid)
+            continue
+        x.receivable, x.carry = accrue(outstanding(x, d1), x.rate_bp, days - 1, 0)
         recv += x.receivable
     book = sum(outstanding(x, d1) for x in world.loans.values())
     allow = _provision_need(world, d1)
@@ -397,6 +404,9 @@ def open_book(world) -> None:
         memo="opening balance",
     )
     world.month_start_entry = len(world.ledger.entries)
+    # D1 (2027-03-01) is booked on its own morning, as P&L of March (see accrue_and_fund).
+    _accrue_days(world, [d1], skip=frozenset(skip_d1))
+    _fund_days(world, [d1])
 
 
 def _dates(d) -> list[date]:
@@ -404,13 +414,30 @@ def _dates(d) -> list[date]:
 
 
 def accrue_and_fund(world, d) -> list[str]:
-    """Step 1. Per calendar day t in (old, new]: interest on each performing loan's
-    outstanding(t) (none on NPL), then one FTP posting: ftp_bp × Σ outstanding(t) / 365
-    to FUNDING_COST, plus the constant deposit margin."""
+    """Step 1. Interest and funding for each calendar day t in (old, new].
+
+    Day convention: calendar day t's interest and FTP are booked on the first business
+    morning on or after t (so a weekend is booked on Monday morning). D1 = 2027-03-01 is
+    booked at opening (`open_book`), so every calendar day from 03-01 has exactly one
+    FUNDING_COST posting, and March P&L covers 03-01..03-31 (03-31 is booked on the D23
+    morning; the D23 close then opens April before 04-01 is booked). The opening
+    receivable holds only interest for days before D1. A month boundary inside a weekend
+    gap would book the gap to the new month; the pilot horizon has none (03-31 is a Wed).
+    """
+    days = _dates(d)
+    _accrue_days(world, days)
+    _fund_days(world, days)
+    return []
+
+
+def _accrue_days(world, days: list[date], skip: frozenset[str] = frozenset()) -> None:
+    """Interest on each performing loan's outstanding(t) for t in `days` (none on NPL)."""
     total = 0
     for lid in sorted(world.loans):
+        if lid in skip:
+            continue
         x = world.loans[lid]
-        for t in _dates(d):
+        for t in days:
             out = outstanding(x, t)
             if out <= 0 or loan_bucket(x, t) in NO_ACCRUAL:
                 continue
@@ -419,15 +446,20 @@ def accrue_and_fund(world, d) -> list[str]:
             x.receivable += i
             total += i
     if total:
-        ev = world.event("interest_accrued", {"date": d.new_date.isoformat(), "amount": total})
+        ev = world.event("interest_accrued", {"date": days[-1].isoformat(), "amount": total})
         world.ledger.post(
             [(INTEREST_RECEIVABLE, total), (INTEREST_INCOME, -total)],
             event_seq=ev.seq,
             memo="interest accrual",
         )
+
+
+def _fund_days(world, days: list[date]) -> None:
+    """One posting per day: ftp_bp × Σ outstanding(t) / 365 to FUNDING_COST, plus the
+    constant deposit margin."""
     ftp_bp = world.config.rates["ftp_bp"]  # {bp/yr}
     margin = world.config.book["deposit_margin_daily"]  # {cents/cday}
-    for t in _dates(d):
+    for t in days:
         loans = sum(outstanding(world.loans[k], t) for k in sorted(world.loans))
         ftp, world.ftp_carry = divmod(loans * ftp_bp + world.ftp_carry, 10_000 * 365)
         ev = world.event(
@@ -444,7 +476,6 @@ def accrue_and_fund(world, d) -> list[str]:
             event_seq=ev.seq,
             memo=f"FTP and deposit margin {t.isoformat()}",
         )
-    return []
 
 
 def process_dues(world, d) -> list[str]:
@@ -493,15 +524,29 @@ def process_dues(world, d) -> list[str]:
 
 
 def log_bucket_moves(world, d) -> list[str]:
-    """Step 3. DPD/buckets are derived, never stored (I10); log each bucket change."""
+    """Step 3. DPD/buckets are derived, never stored (I10); log each bucket change.
+
+    On entry into NPL the loan's unrealised accrued interest is reversed (Dr INTEREST_INCOME
+    / Cr INTEREST_RECEIVABLE): no interest income may stand on an NPA
+    (credit-risk-and-underwriting.md §6). Later cash receipts are income when received.
+    """
     for lid in sorted(world.loans):
         x = world.loans[lid]
         old, new = loan_bucket(x, d.old_date), loan_bucket(x, d.new_date)
         if old != new:
-            world.event(
+            bc = world.event(
                 "bucket_change",
                 {"loan_id": lid, "from": old, "to": new, "dpd": dpd(x, d.new_date)},
             )
+            if new in NO_ACCRUAL and old not in NO_ACCRUAL and x.receivable:
+                amt = x.receivable
+                ev = world.event("interest_reversed", {"loan_id": lid, "amount": amt}, cause=bc.seq)
+                world.ledger.post(
+                    [(INTEREST_INCOME, amt), (INTEREST_RECEIVABLE, -amt)],
+                    event_seq=ev.seq,
+                    memo=f"NPL interest reversal {lid}",
+                )
+                x.receivable = 0
     return []
 
 
@@ -521,17 +566,18 @@ def _month_pnl(world) -> dict[str, Money]:
     """P&L {cents} from the ledger since the month opened (income positive)."""
     sums = dict.fromkeys(PNL_ACCOUNTS, 0)
     written_off = 0
+    wo_seqs = {e.seq for e in world.log.events if e.type == "write_off"}  # by event type
     for e in world.ledger.entries[world.month_start_entry :]:
         for acct, amt in e.lines:
             if acct in sums:
                 sums[acct] += amt
-            if acct == ALLOWANCE and e.memo.startswith("write-off"):
+            if acct == ALLOWANCE and e.event_seq in wo_seqs:
                 written_off += amt
     return {
         "interest_income": -sums[INTEREST_INCOME],
         "deposit_margin": -sums[DEPOSIT_MARGIN],
         "funding_cost": sums[FUNDING_COST],
-        "provisions": sums[PROVISION_EXPENSE] + sums[WRITE_OFF_EXPENSE],
+        "provisions": sums[PROVISION_EXPENSE],
         "write_offs": written_off,
         "profit": -sum(sums.values()),
     }

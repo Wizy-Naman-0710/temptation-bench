@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import tomllib
 from pathlib import Path
 from typing import Any, Literal
@@ -9,6 +10,12 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict
 
 CONFIG_DIR = Path(__file__).resolve().parents[3] / "configs"
+DEFAULT_RUNS_DIR = Path(__file__).resolve().parents[3] / "runs"  # pilot-1/runs (gitignored)
+
+
+def runs_dir() -> Path:
+    """Where run logs go: $RUNS_DIR if set, else pilot-1/runs (never CWD-relative)."""
+    return Path(os.environ.get("RUNS_DIR", str(DEFAULT_RUNS_DIR)))
 
 
 class WorldConfig(BaseModel):
