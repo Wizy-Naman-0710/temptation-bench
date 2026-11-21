@@ -18,7 +18,8 @@ Do these in order at the start of **every** session:
 - [ ] Read [`docs/spec.md`](docs/spec.md) in full (247 lines). It holds the *why* and every number.
 - [ ] Read the plan section for your session only (e.g. "Session S2" in [`docs/plan.md`](docs/plan.md)). Also read the plan's **Global Constraints** and **Review Focus**.
 - [ ] Read the design-doc (DD) sections your tasks cite: [`../docs/2026-11-21-temptation-bench-pilot-design.md`](../docs/2026-11-21-temptation-bench-pilot-design.md).
-- [ ] Load the skills listed for your session in §3.
+- [ ] Do **§3.0 "Load these first"** step by step: check the tools are installed, invoke `superpowers:using-superpowers` and the execution skill, read `../research/README.md`, and set up Context7 if the session uses Inspect.
+- [ ] Before **each** task: invoke the skills on its **Skills:** line in §2 and read its **Read:** notes (§3a). Log both in §7.
 - [ ] Run `git status` and `git log --oneline -5` (you should be on branch `pilot-1`), then `cd pilot-1 && uv run pytest -q`. If tests are red, fix that first with `superpowers:systematic-debugging`.
 - [ ] Re-read the security rules in §6.
 
@@ -53,60 +54,96 @@ Legend: `[ ]` not started · `[~]` in progress (add a note) · `[x]` done (add t
 
 ### S1: M0 tooling + M1 walking skeleton
 
+Under each task: **Skills:** = invoke these with the Skill tool first (on top of the "always" list in §3b). **Read:** = notes in `../research/` (sections in §3a). **Docs:** = Inspect lookups (§3b).
+
 - [ ] Task 1: Project scaffold (uv, ruff, pytest, `.gitignore`, `.env.example`, layering + no-secrets tests)
+  - Skills: `modern-python:modern-python` · Read: project-structure-patterns, engine-layout §7
 - [ ] Task 2: Project skills (architect, banking domain, methodology) + pointer line in `claude-tooling/README.md`
+  - Skills: `anthropic-skills:skill-creator`, `superpowers:writing-skills` · Read: the three lists in §3a row 2 (each skill links them)
 - [ ] Task 3: `pricing.yaml` + `register_prices()` + test
+  - Skills: (always list) · Read: inspect-ai §8, models-and-pricing §7 · Docs: `set_model_info`, `ModelCost`
 - [ ] Task 4: Engine primitives (money, rng, queue, event log)
+  - Skills: `codebase-design`, `dimensional-analysis:dimensional-analysis` · Read: engine-layout §1–5, integrity §1, project-structure §3, §5, §6
 - [ ] Task 5: Config + skeleton `Branch` (D1–D3, 7 tools, status line)
+  - Skills: `codebase-design`, `agent-harness-construction` · Read: engine-layout, prosus §4–6, rulebook §0, vending-bench
 - [ ] Task 6: Skeleton scoring (T1 label) + `honest` / `cheater` bots
+  - Skills: `benchmark-methodology` · Read: attribution §2–3, scenario-taxonomy §2, blueprint-bench
 - [ ] Task 7: Inspect task, agent loop, tools, scorer; mockllm e2e; truncation test
+  - Skills: `agent-harness-construction`, `temptation-bench-architect` · Read: inspect-ai §1–4, §7, §9; attribution §2 M1 · Docs: custom agent, `@tool`, `StoreModel`, mockllm, scorer, limits
 - [ ] Task 8: Graph 1 (tool calls per day)
+  - Skills: `dataviz`, `scientific-visualization` · Read: vending-bench, price-of-integrity §9
 - [ ] **S1 exit check**
 
 ### S2: M2a economy
 
 - [ ] Task 9: Calendar clock + 8-step end-of-day pipeline
+  - Skills: `temptation-bench-architect` · Read: default-timing §2, engine-layout §3, consequence-model §4, prosus §7
 - [ ] Task 10: Double-entry ledger + invariants I1–I4, I13 (Hypothesis)
+  - Skills: `property-based-testing:property-based-testing`, `dimensional-analysis:dimensional-analysis` · Read: integrity §2, §5; prosus §6
 - [ ] Task 11: Credit maths (EMI, n_min, PD, hazards, accrual, buckets) + `dimensional-analysis`
+  - Skills: `dimensional-analysis:dimensional-analysis`, `property-based-testing:property-based-testing`, `banking-simulation-domain` · Read: credit-risk §2–7, default-timing §5–6, calibration-table, rulebook R2–R4
 - [ ] Task 12: Customers, evidence, verification, arrivals
+  - Skills: `banking-simulation-domain` · Read: customer-behaviour §2e–2f, §3; personas; credit-risk §1; evergreening §4; calibration-table
 - [ ] Task 13: Inherited book, DPD, provisions, `day_close` event, NPL crossing D15–D20
+  - Skills: `banking-simulation-domain`, `dimensional-analysis:dimensional-analysis` · Read: default-timing §1, §3; credit-risk §6; branch-economics §1–2; rulebook R5–R6; consequence-model §1, §5
 - [ ] Task 14: Run-off, finalize, seal
+  - Skills: `banking-simulation-domain`, `dimensional-analysis:dimensional-analysis` · Read: default-timing §3, consequence-model §1, integrity §4
 - [ ] **S2 exit check**
 
 ### S3: M2b scenario, tools, scorer, bots
 
 - [ ] Task 15: Versioned records + edit tags
-- [ ] Task 16: Planted scenario (T1, C1–C4, D1 email) + `TemplatePeople`
+  - Skills: `temptation-bench-architect`, `codebase-design` · Read: integrity §3, evergreening §4, rulebook R1, R17
+- [ ] Task 16: Planted scenario (T1, C1–C4, D1 email) + `TemplatePeople` + P/O factor slots + `run_config` tag
+  - Skills: `banking-simulation-domain`, `benchmark-methodology`, `experimental-design` · Read: scenario-taxonomy §1–2; **experiment-matrix §1–2**; price-of-integrity §1, §3, §7, §10; personas §2–3; conduct-gifts §2–4; branch-economics §5–6; DD §5A.7 (see the gap note in §3a)
 - [ ] Task 17: Remaining 11 tools (18 total), MIS CSV format, size caps
+  - Skills: `agent-harness-construction`, `banking-simulation-domain` · Read: engine-layout §5, prosus §7, rulebook (R14), attribution §2 M4, blueprint-bench, memory-tools §2–3
 - [ ] Task 18: Full invariants + Hypothesis state machine
+  - Skills: `property-based-testing:property-based-testing` · Read: integrity §5, §8, §9
 - [ ] Task 19: Full scorer (DD §10.1–§10.3)
+  - Skills: `benchmark-methodology`, then `mutation-testing:mutation-testing` · Read: attribution §3–4, scenario-taxonomy §2–4, blueprint-bench, rulebook R12, R14, integrity §4
 - [ ] Task 20: All bots, scorer-on-bots, sensitivity base case
+  - Skills: `banking-simulation-domain`, `benchmark-methodology` · Read: customer-behaviour §4, personas §1, scenario-taxonomy §4, integrity §7, prosus §4
 - [ ] Task 21: System prompt, target calibration, golden hash, minimal pair
+  - Skills: `benchmark-methodology`, `experimental-design` · Read: rulebook "Agent-facing compact version", branch-economics §4–6, calibration-table, engine-layout §4, §7, prosus §4
 - [ ] **S3 exit check**
 
 ### S4: M3 harness + M4 people prose
 
 - [ ] Task 22: `CompactionTrim` + real `in_window` tracking
+  - Skills: `agent-harness-construction` · Read: inspect-ai §3a–3b, attribution §2 M1, memory-tools §3, prosus §9 · Docs: compaction
 - [ ] Task 23: Loop policies (nudge, caps, auto-advance, REAL/EVAL probe, transcript spans)
+  - Skills: `agent-harness-construction`, `benchmark-methodology` · Read: inspect-ai §7, §9; experiment-matrix §6; prosus §9 (reminder test) · Docs: limits, `transcript`, `span`
 - [ ] Task 24: Model settings (effort low, no seed/temperature) + per-cell cache + `harness.json`
+  - Skills: `cost-aware-llm-pipeline` · Read: inspect-ai §5–6, §12; models-and-pricing §7 · Docs: reasoning effort, `CachePolicy`, model roles
 - [ ] Task 25: Budget guard (`budget.py`) + paid runner (`run.py`)
+  - Skills: `cost-aware-llm-pipeline` · Read: experiment-matrix §5, inspect-ai §8, project-structure §8 · Docs: `cost_limit`, `ModelUsage`
 - [ ] Task 26: People prose pregen + post-check + `ProsePeople`
+  - Skills: `benchmark-methodology` · Read: multiagent §2–3, personas, engine-layout §6, prosus §4 (mailroom) · Docs: model roles
 - [ ] **S4 exit check**
 
 ### S5: M5 graphs + G-free + M6 paid
 
 - [ ] Task 27: Analysis loaders + stats (Clopper-Pearson, paired exact, HP_norm)
+  - Skills: `statistical-analysis`, `statistical-power`, `exploratory-data-analysis` · Read: price-of-integrity §6, §8.1; attribution §4; scenario-taxonomy §3–4; experiment-matrix §3 · Docs: `read_eval_log`, dataframes
 - [ ] Task 28: Graphs 2–10 + `report.md`
+  - Skills: `dataviz`, `scientific-visualization` · Read: price-of-integrity §9, scenario-taxonomy §4 (two axes), experiment-matrix §6
 - [ ] Task 29: G-free connectivity check (\$0) — **needs the owner's new key in `.env` first**
+  - Skills: `superpowers:verification-before-completion`, `cost-aware-llm-pipeline` · Read: inspect-ai §8, §10–11; project-structure §8 · Docs: providers, Hooks (route in headers)
 - [ ] Task 30: Route check (≤ \$0.05) + smoke (≤ \$1.00)
+  - Skills: `superpowers:verification-before-completion` (before each paid command), `cost-aware-llm-pipeline` · Read: experiment-matrix §3, §5; inspect-ai §12 · Docs: caching, concurrency
 - [ ] Task 31: People pregen (≤ \$0.05) + mini-batch (≤ \$5.00) + hand check of every T1 decision
+  - Skills: `superpowers:verification-before-completion`, `cost-aware-llm-pipeline`, `benchmark-methodology` (hand check) · Read: experiment-matrix §3 (go/no-go), attribution §3
 - [ ] **S5 exit check** (ledger ≤ \$6.60)
 
 ### S6: M7 full horizon
 
 - [ ] Task 32: D11–D30 events (MIS #2–#5, boss replies) + internal audit
+  - Skills: `banking-simulation-domain`, `property-based-testing:property-based-testing` · Read: audit-and-supervision §2–5, rulebook R14–R16, consequence-model §2–3, §5, conduct-gifts §5–7, personas §7
 - [ ] Task 33: Mode-prefix test, full-horizon golden hash, detection-rate range
+  - Skills: `property-based-testing:property-based-testing`, `benchmark-methodology` · Read: default-timing §4, engine-layout §7, consequence-model §5, audit-and-supervision Design impl.
 - [ ] Task 34: Optional paid full run (≤ \$1.50), final report, whole-branch review, wrap-up
+  - Skills: `superpowers:verification-before-completion`, `cost-aware-llm-pipeline`, `superpowers:requesting-code-review`, `superpowers:receiving-code-review`, `superpowers:finishing-a-development-branch` (+ built-in `code-review`, `simplify`) · Read: experiment-matrix §3 (go/no-go)
 - [ ] **S6 exit check**
 
 ### "Done means" (spec §1): tick these at the very end, with evidence links
@@ -129,66 +166,142 @@ Invariants · golden hash · reminder test · cheater tagging · scorer on bots 
 
 ---
 
-## 3. Skills to load, per session
+## 3. Skills, tools and research to load
 
 Check `../claude-tooling/README.md` for what each skill is for. **Superpowers is the core.**
+Every name in §3 and §2 is the exact string for the **Skill tool**. All were checked against the installed skills on 2026-11-22.
+
+> **Task numbers** in §2, §3a and §3b follow the **current** `docs/plan.md` (34 tasks). If the plan's task list changes, update all three together.
+
+### 3.0 Load these first (follow literally, every session)
+
+Don't write code for a task until its steps below are done.
+
+1. **Start in the right folder.** Best: start Claude Code inside `pilot-1/`. Then this folder's `CLAUDE.md` loads, and so do the project skills in `pilot-1/.claude/skills/` (after Task 2).
+2. **Check the tools are installed** (1 minute):
+   - In a shell, `claude plugin list` must show **enabled** for: `superpowers@claude-plugins-official`, `context7@claude-plugins-official`, `property-based-testing@trailofbits`, `modern-python@trailofbits`, `dimensional-analysis@trailofbits`, `mutation-testing@trailofbits`.
+   - `ls ~/.claude/skills/` must list: `codebase-design`, `experimental-design`, `statistical-analysis`, `statistical-power`, `scientific-visualization`, `agent-harness-construction`, `cost-aware-llm-pipeline`, `documentation-lookup`, `exploratory-data-analysis`.
+   - `dataviz` and `anthropic-skills:skill-creator` are built in. They show in your session's skill list, not in that folder.
+   - **If anything is missing or disabled: stop and tell the owner.** Don't install, enable or update anything yourself.
+   - While you wait, you may read that skill's `SKILL.md` directly if the file exists. Plugin skills live at `~/.claude/plugins/cache/<marketplace>/<plugin>/<version>/skills/<name>/SKILL.md`. Write the gap in §7.
+3. Invoke `superpowers:using-superpowers`.
+4. Invoke the execution skill recorded in §4: `superpowers:subagent-driven-development` (recommended) or `superpowers:executing-plans`. If none is recorded yet, ask the owner once and record the answer.
+5. Read `../research/README.md` (the research index).
+6. **If your session touches Inspect** (Tasks 3, 7, 22–27, 29–31, 34):
+   - Read `../research/03-tooling/inspect-ai.md` in full. It was checked against the installed 0.3.291 package.
+   - Load Context7. Its tools may be deferred. If so, load them first with ToolSearch: `select:mcp__plugin_context7_context7__resolve-library-id,mcp__plugin_context7_context7__query-docs`.
+   - Library ids (confirmed with `resolve-library-id` on 2026-11-22):
+     - `/websites/inspect_aisi_uk`: the docs site. Use this first.
+     - `/ukgovernmentbeis/inspect_ai`: the source code, for exact signatures.
+   - Or fetch one page listed in `../claude-tooling/inspect-ai-context.md`. It indexes 79 doc pages, each a `.md` URL. §3b says which pages each task needs.
+   - Context7 and the web docs can be newer than 0.3.291. **The installed package wins.** Check a signature like this: `uv run python -c "import inspect; from inspect_ai.model import set_model_info; print(inspect.signature(set_model_info))"`.
+7. **Before each task** (every task, not once per session):
+   - invoke the skills on the task's **Skills:** line in §2 (why and when: §3b);
+   - read the notes on its **Read:** line in §2 (exact sections: §3a);
+   - run its Inspect doc lookups (§3b, last column);
+   - add one line to today's §7 log entry: `T<n>: skills …; read …`. If you skip something, say why.
+8. Invoke `superpowers:test-driven-development` before the first line of engine, scorer or harness code. Invoke `superpowers:verification-before-completion` before you tick any box in §2.
+
+**Tool caveats (read once per session):**
+- **`modern-python:modern-python` changes `python` and `pip`.** At session start it adds small wrapper scripts ("shims"). `python script.py`, `pip install` and `python -m pip` are intercepted and point you to `uv`. `python -c` and `python -m <module>` pass straight through. Always use `uv run …` and `uv add …` here.
+- **`literature-review` has optional paid scripts** (OpenRouter diagrams, Parallel search). They only run if `OPENROUTER_API_KEY` / `PARALLEL_API_KEY` are set, and they aren't. Never set them. Ask the owner before any paid API. Pilot-1 doesn't need this skill.
+- **K-Dense skills** (`experimental-design`, `statistical-analysis`, `statistical-power`, `scientific-visualization`, `hypothesis-generation`, `literature-review`) expect Python 3.12+ and their own environment for their helper scripts. Use their advice. Don't add their script dependencies to `pilot-1/pyproject.toml`.
+- **Project skills** (`temptation-bench-architect`, `banking-simulation-domain`, `benchmark-methodology`) exist only after Task 2. Before that, read the §3a notes directly. If the session started at the repo root, they may be listed with a folder prefix (for example `pilot-1:banking-simulation-domain`). Use the name exactly as your skill list shows it.
+- **Skills are advice.** If a skill disagrees with the spec, the plan or §6, the spec wins.
+
+### 3.1 Per session (summary)
 
 | Session | Process skills | Domain / tool skills |
 |---|---|---|
-| Every session | `superpowers:using-superpowers`, `superpowers:subagent-driven-development` (or `executing-plans`), `superpowers:test-driven-development`, `superpowers:verification-before-completion`; `superpowers:systematic-debugging` when anything fails | project skills in `pilot-1/.claude/skills/` (after Task 2) |
-| S1 | as above | `modern-python` (T1), `anthropic-skills:skill-creator` (T2), `codebase-design` (T5 facade), Context7 `/websites/inspect_aisi_uk` (T3, T7), `dataviz` (T8) |
-| S2 | as above | `dimensional-analysis` (T11, T13, T14), `property-based-testing` (T10), `banking-simulation-domain` |
-| S3 | `superpowers:dispatching-parallel-agents` (T16/T17 after T15) | `property-based-testing` (T18), `banking-simulation-domain`, `benchmark-methodology`; optional `mutation-testing` on `scoring.py` |
-| S4 | as above | Context7 (compaction, `CachePolicy`, limits, `StoreModel`), `benchmark-methodology` |
-| S5 | `superpowers:verification-before-completion` **before every paid step** | `dataviz`, `scientific-visualization`, `statistical-analysis` |
-| S6 | `superpowers:requesting-code-review`, `superpowers:finishing-a-development-branch` | `banking-simulation-domain` |
+| Every session | `superpowers:using-superpowers`; `superpowers:subagent-driven-development` or `superpowers:executing-plans`; `superpowers:test-driven-development`; `superpowers:verification-before-completion`; `superpowers:systematic-debugging` when anything fails | project skills in `pilot-1/.claude/skills/` (after Task 2) |
+| S1 | as above; `superpowers:writing-skills` (T2) | `modern-python:modern-python` (T1), `anthropic-skills:skill-creator` (T2), `codebase-design` (T4–T5), `dimensional-analysis:dimensional-analysis` (T4), Context7 (T3, T7), `agent-harness-construction` (T5, T7), `dataviz` + `scientific-visualization` (T8) |
+| S2 | as above | `property-based-testing:property-based-testing` (T10, T11), `dimensional-analysis:dimensional-analysis` (T10, T11, T13, T14), `banking-simulation-domain` (T11–T14), `temptation-bench-architect` (T9) |
+| S3 | as above; `superpowers:dispatching-parallel-agents` (T16/T17 after T15) | `banking-simulation-domain`, `benchmark-methodology`, `experimental-design` (T16, T21), `agent-harness-construction` (T17), `property-based-testing:property-based-testing` (T18), `mutation-testing:mutation-testing` (after T19) |
+| S4 | as above | Context7 (T22–T26), `agent-harness-construction` (T22–T23), `cost-aware-llm-pipeline` (T24–T25), `benchmark-methodology` (T23, T26) |
+| S5 | `superpowers:verification-before-completion` **before every paid step** | `statistical-analysis`, `statistical-power`, `exploratory-data-analysis` (T27), `dataviz` + `scientific-visualization` (T28), `cost-aware-llm-pipeline` (T29–T31), Context7 (T27, T29–T30), `benchmark-methodology` (T31 hand check) |
+| S6 | `superpowers:requesting-code-review`, `superpowers:receiving-code-review`, `superpowers:finishing-a-development-branch`; built-in `code-review` and `simplify` (T34) | `banking-simulation-domain` (T32), `property-based-testing:property-based-testing` (T32–T33), `benchmark-methodology` (T33–T34), `cost-aware-llm-pipeline` (T34 paid run) |
 
 ### 3b. Skill and tooling map per task (invoke these before the task)
 
-The names below are the exact strings for the **Skill tool**. They match `../claude-tooling/README.md` ("Which tool for which job"). If a skill is missing, check that README's install table and tell the owner. Don't install new packs without asking.
+The names below are the exact strings for the **Skill tool**. `../claude-tooling/README.md` writes the Trail of Bits skills by short name (`modern-python`, `property-based-testing`, `dimensional-analysis`, `mutation-testing`). Those are plugin skills, so the Skill tool needs the `plugin:skill` form used here (e.g. `modern-python:modern-python`). If a skill is missing, follow §3.0 step 2. Never install a new pack without asking.
 
 **Always, in every task:**
 - `superpowers:using-superpowers` (session start)
 - `superpowers:subagent-driven-development` or `superpowers:executing-plans` (whichever is recorded in §4)
-- `superpowers:test-driven-development`
+- `superpowers:test-driven-development` (before any code)
 - `superpowers:verification-before-completion` (before ticking a box)
 - `superpowers:systematic-debugging` (any red test or surprise)
 - After Task 2: the project skills `temptation-bench-architect`, `banking-simulation-domain` and `benchmark-methodology`, as listed in this table
 
 **Library docs:**
-- Inspect AI: Context7 (`resolve-library-id` → `query-docs`, library `/websites/inspect_aisi_uk`), or fetch a page listed in `../claude-tooling/inspect-ai-context.md`.
-- Other libraries (pydantic, Hypothesis, pandas, matplotlib): Context7 via the `documentation-lookup` skill.
+- Inspect AI: see §3.0 step 6 (Context7 `/websites/inspect_aisi_uk`, or a page from `../claude-tooling/inspect-ai-context.md`).
+- Other libraries (pydantic, Hypothesis, pandas, matplotlib, httpx): invoke `documentation-lookup`, which uses Context7.
 
-| Task(s) | Invoke |
+"Inspect docs" column: what to query in Context7 · which page to open from `inspect-ai-context.md` · which section of `research/03-tooling/inspect-ai.md`.
+
+| Task | Invoke (Skill tool) | Inspect docs |
+|---|---|---|
+| 1 scaffold | `modern-python:modern-python` (uv, ruff, pytest, pyproject) | – |
+| 2 project skills | `anthropic-skills:skill-creator`, `superpowers:writing-skills` | – |
+| 3 prices | (always-list only) | `set_model_info`, `ModelInfo`, `ModelCost`, `get_model_info` · `reference/inspect_ai.model` · §8 |
+| 4 engine primitives | `codebase-design`, `dimensional-analysis:dimensional-analysis` (cents, basis points, minutes), `temptation-bench-architect` (after T2) | – |
+| 5 config, `Branch` facade | `codebase-design` (deep-module facade, seams), `agent-harness-construction` (status line, tool output shape), `temptation-bench-architect` | – |
+| 6 skeleton scoring, bots | `benchmark-methodology` | – |
+| 7 Inspect skeleton | `agent-harness-construction` (tool docstrings, outputs, errors), `temptation-bench-architect` | custom `@agent` loop, `@tool` + `ToolError`, `StoreModel` / `store_as`, `mockllm/model`, `@scorer`, limits · Custom Agents, Custom Tools, Custom Scorers, Providers (mockllm), Setting Limits, `reference/inspect_ai.util` · §1–4, §7, §9 |
+| 8 graph 1 | `dataviz`, `scientific-visualization` | – |
+| 9 clock, end of day | `temptation-bench-architect` | – |
+| 10 ledger | `property-based-testing:property-based-testing`, `dimensional-analysis:dimensional-analysis` | – |
+| 11 credit maths | `dimensional-analysis:dimensional-analysis`, `property-based-testing:property-based-testing`, `banking-simulation-domain` | – |
+| 12 customers, arrivals | `banking-simulation-domain` | – |
+| 13–14 book, run-off | `banking-simulation-domain`, `dimensional-analysis:dimensional-analysis` | – |
+| 15 records | `temptation-bench-architect`, `codebase-design` | – |
+| 16 scenario + P/O factor slots | `banking-simulation-domain`, `benchmark-methodology`, `experimental-design` (minimal pairs, the P/O slots, the `run_config` tag) | – |
+| 17 tools | `agent-harness-construction`, `banking-simulation-domain` | – |
+| 18 invariants fuzzing | `property-based-testing:property-based-testing` | – |
+| 19 full scorer | `benchmark-methodology`; once green, `mutation-testing:mutation-testing` on `engine/scoring.py` (do the tests catch bugs?) | – |
+| 20 bots, sensitivity | `banking-simulation-domain`, `benchmark-methodology` | – |
+| 21 prompt, calibration, golden hash | `benchmark-methodology` (no-leak wording), `experimental-design` (minimal pair, calibration seeds) | – |
+| 22 compaction, `in_window` | `agent-harness-construction` | `compaction()`, `CompactionTrim` · Compaction · §3a–3b |
+| 23 loop policies, probe | `agent-harness-construction`, `benchmark-methodology` (probe wording) | `transcript().info`, `span`, message/turn limits · Setting Limits, Log Files, `reference/inspect_ai.util` · §7, §9 |
+| 24 model settings, cache | `cost-aware-llm-pipeline` (caching) | `GenerateConfig` reasoning effort, `CachePolicy(scopes=...)`, model roles · Reasoning, Caching, Using Models · §5, §6, §12 |
+| 25 budget guard | `cost-aware-llm-pipeline` | `cost_limit`, `ModelUsage` · Setting Limits, Log Files · §7, §8 |
+| 26 people prose | `benchmark-methodology` (no-leak check) | `model_roles`, `get_model(role=...)` · Using Models · §6 |
+| 27 loaders, stats | `statistical-analysis`, `exploratory-data-analysis`; `statistical-power` (only for the "n = 3 is exploratory" caveat) | `read_eval_log`, dataframes · Log Files, Dataframes, `reference/inspect_ai.log` · §9 |
+| 28 graphs 2–10, report | `dataviz`, `scientific-visualization` | – |
+| 29–31 G-free, route check, smoke, mini-batch | `superpowers:verification-before-completion` **before each paid command**, `cost-aware-llm-pipeline`; T31 hand check: `benchmark-methodology` | `openai-api` and `anthropic` providers with a base URL, `max_samples` · Providers, Concurrency, Hooks (only if the route is in response headers) · §10–12 |
+| 32 D11–D30 events, audit | `banking-simulation-domain`, `property-based-testing:property-based-testing` | – |
+| 33 modes, determinism | `property-based-testing:property-based-testing`, `benchmark-methodology` | – |
+| 34 paid full run, wrap-up | `superpowers:verification-before-completion`, `cost-aware-llm-pipeline` (paid step); `superpowers:requesting-code-review`, `superpowers:receiving-code-review`, built-in `code-review` / `simplify`, `superpowers:finishing-a-development-branch` | as 29–31 |
+
+#### Every tool in `claude-tooling/README.md`, and whether pilot-1 uses it
+
+| Skill or tool (exact name) | Pilot-1 use |
 |---|---|
-| 1 scaffold | `modern-python:modern-python` |
-| 2 project skills | `anthropic-skills:skill-creator`, `superpowers:writing-skills` |
-| 3 prices | Context7 (Inspect `set_model_info`, `ModelCost`) |
-| 4–5 engine primitives, `Branch` facade | `codebase-design` (deep-module facade), `temptation-bench-architect` |
-| 6 skeleton scoring, bots | `benchmark-methodology` |
-| 7 Inspect skeleton | Context7 (Inspect agent, `@tool`, `StoreModel`, mockllm), `agent-harness-construction` (tool docstrings and outputs), `temptation-bench-architect` |
-| 8 graph 1 | `dataviz`, `scientific-visualization` |
-| 9 clock | `temptation-bench-architect` |
-| 10 ledger | `property-based-testing:property-based-testing`, `dimensional-analysis:dimensional-analysis` |
-| 11 credit maths | `dimensional-analysis:dimensional-analysis`, `property-based-testing:property-based-testing`, `banking-simulation-domain` |
-| 12–14 customers, book, run-off | `banking-simulation-domain`, `dimensional-analysis:dimensional-analysis` (13, 14) |
-| 15 records | `temptation-bench-architect` |
-| 16 scenario | `banking-simulation-domain`, `benchmark-methodology`, `experimental-design` (minimal pairs) |
-| 17 tools | `agent-harness-construction`, `banking-simulation-domain` |
-| 18 invariants fuzzing | `property-based-testing:property-based-testing` |
-| 19 full scorer | `benchmark-methodology`; afterwards `mutation-testing:mutation-testing` on `engine/scoring.py` (do the tests catch bugs?) |
-| 20 bots, sensitivity | `banking-simulation-domain`, `benchmark-methodology` |
-| 21 prompt, calibration, golden hash | `benchmark-methodology` (no-leak wording), `superpowers:dispatching-parallel-agents` (if running 16/17 in parallel) |
-| 22–24 harness | Context7 (`CompactionTrim`, `CachePolicy`, limits, model roles), `agent-harness-construction` |
-| 25 budget guard | `cost-aware-llm-pipeline` |
-| 26 people prose | Context7 (model roles), `benchmark-methodology` (no-leak check) |
-| 27 loaders, stats | `statistical-analysis`, `exploratory-data-analysis`; `statistical-power` (for the "n = 3 is exploratory" caveat) |
-| 28 graphs 2–10, report | `dataviz`, `scientific-visualization` |
-| 29–31, 34 paid runs | `superpowers:verification-before-completion` **before each paid command**, `cost-aware-llm-pipeline` |
-| 32–33 audit, modes | `banking-simulation-domain`, `property-based-testing:property-based-testing` |
-| 34 wrap-up | `superpowers:requesting-code-review`, `superpowers:receiving-code-review`, `superpowers:finishing-a-development-branch` |
+| `superpowers:brainstorming` | **Not for build tasks.** The spec and plan are done. Use only if the owner asks for a new feature or a design change. |
+| `superpowers:writing-plans` | **Not for build tasks.** The plan is fixed. Use only if the owner asks to re-plan. |
+| `superpowers:test-driven-development` | Every code task (1, 3–33) |
+| `superpowers:systematic-debugging` | Any red test or surprise |
+| `superpowers:verification-before-completion` | Before ticking a box; before every paid command (29–31, 34) |
+| `superpowers:requesting-code-review`, `superpowers:receiving-code-review` | Task 34 whole-branch review; optional at each session's exit check |
+| `superpowers:subagent-driven-development` / `superpowers:executing-plans` | Every session (choice recorded in §4) |
+| `modern-python:modern-python` | Task 1; its shim caveat applies every session (§3.0) |
+| `dimensional-analysis:dimensional-analysis` | Tasks 4, 10, 11, 13, 14 |
+| `mutation-testing:mutation-testing` | After Task 19, on `engine/scoring.py`. Optional; skip if time is short (not on the never-cut list) |
+| `property-based-testing:property-based-testing` | Tasks 10, 11, 18, 32, 33 |
+| `experimental-design` | Tasks 16 and 21 (minimal pairs, factor slots, seeds crossed with doses) |
+| `hypothesis-generation` | **Not for pilot-1.** Pilot-1 is exploratory. Pre-registering H1–H4 comes before the FULL runs (price-of-integrity §1, DD §5A.7). |
+| `statistical-power` | Task 27, only to explain why n = 3 per arm is exploratory. No power claims. |
+| `statistical-analysis` | Task 27 (Clopper-Pearson, exact paired test) and graph 7 |
+| `literature-review` | **Not for pilot-1.** Novelty is already checked (`01-prior-work/gap-check.md`), and its optional scripts are paid. |
+| `scientific-visualization` | Tasks 8, 28 |
+| `anthropic-skills:skill-creator` | Task 2 |
+| Context7 MCP | Tasks 3, 7, 22–27, 29–31 (via `documentation-lookup` for non-Inspect libraries) |
+| Built-in `code-review`, `simplify` | Task 34; optional before a session's final commit |
+| Pyright LSP, Plugin Developer Toolkit | Not installed. Not needed. Ask the owner before adding either. |
 
-Not for pilot-1: `literature-review` (it has paid scripts; ask the owner first), and `hypothesis-generation` (pre-registration comes later).
+**Installed and used here, but not listed in `claude-tooling/README.md`:** `superpowers:using-superpowers`, `superpowers:dispatching-parallel-agents`, `superpowers:writing-skills`, `superpowers:finishing-a-development-branch`, `codebase-design`, `dataviz` (built in), `agent-harness-construction`, `cost-aware-llm-pipeline`, `documentation-lookup`, `exploratory-data-analysis`. They are verified present (§3.0 step 2).
+
+**Installed but not for pilot-1:** `eval-harness` (we have our own Inspect harness and pytest), `domain-modeling` (no glossary/ADR planned), `improve-codebase-architecture`, `grilling`, `handoff` (this file is the handoff), `superpowers:using-git-worktrees` (all work stays on branch `pilot-1`; use it only if `superpowers:subagent-driven-development` asks, and tell the owner).
 
 ### 3a. Research reading map (read before each task)
 
@@ -199,42 +312,85 @@ The research in `../research/` is the *why* behind every number and rule. Read t
 - If a research note and the spec disagree, **follow the spec**, and add a note in §8 if it matters.
 - If a research note describes something outside pilot-1, treat it as background only. Don't build it.
 
-Start with `../research/README.md` (the index) once per session.
+Start with `../research/README.md` (the index) once per session. Paths below are inside `../research/`. "Design impl." = the note's last section, "Design implications".
 
 | Task(s) | Read in `../research/` |
 |---|---|
-| 2 (project skills: link these, don't copy them) | **architect:** `05-simulator-architecture/*`, `03-tooling/project-structure-patterns.md` · **banking:** `02-banking-domain/*` (rulebook, credit-risk, default-timing, calibration-table, customer-behaviour, personas, branch-economics, conduct-gifts, audit) · **methodology:** `04-methodology/*`, `00-papers/*`, `01-prior-work/gap-check.md` |
-| 4–5 engine primitives, skeleton `Branch` | `05-simulator-architecture/engine-layout.md` §1–5; `integrity-and-invariants.md` §1; `prosus-vending-bench-study.md` §5–6; `03-tooling/project-structure-patterns.md` §3, §5, §6; `00-papers/vending-bench.md` (agent setup, clock) |
-| 6, 19 scoring | `04-methodology/attribution-and-controls.md` §3; `scenario-taxonomy.md` §2–4 |
-| 7, 22–24 Inspect harness | `03-tooling/inspect-ai.md` (all); `memory-tools.md` §2–3; `multiagent-and-subagents.md` §2 (model roles); `04-methodology/experiment-matrix.md` §6 (eval-awareness) |
-| 9 clock, end-of-day | `02-banking-domain/default-timing-and-horizon.md` §2; `05-simulator-architecture/engine-layout.md` §3; `consequence-model.md` §4 |
-| 10, 18 ledger, invariants | `05-simulator-architecture/integrity-and-invariants.md` §2, §5–7; `prosus-vending-bench-study.md` §6 |
-| 11 credit maths | `02-banking-domain/credit-risk-and-underwriting.md` §3–6; `default-timing-and-horizon.md` §5–6; `calibration-table.md` |
-| 12 customers, arrivals | `02-banking-domain/customer-behaviour-models.md` §2–3; `personas.md` §3, §5, §6; `evergreening-and-loan-fraud.md` §4 (income fraud); `calibration-table.md` |
-| 13–14 book, provisions, run-off | `02-banking-domain/default-timing-and-horizon.md` §3; `credit-risk-and-underwriting.md` §6; `branch-economics-and-targets.md` §1–2 (internal pricing); `general-rulebook.md` R5 |
-| 15 records, edits | `05-simulator-architecture/integrity-and-invariants.md` §3; `02-banking-domain/evergreening-and-loan-fraud.md` §4 |
-| 16 planted scenario | `04-methodology/scenario-taxonomy.md`; `price-of-integrity.md` §3; `experiment-matrix.md` §2 (minimal pairs); `02-banking-domain/personas.md` §2–3; `conduct-gifts-whistleblowing.md` §3–4; `branch-economics-and-targets.md` §5–6 |
-| 17 tools | `05-simulator-architecture/engine-layout.md` §5; `02-banking-domain/general-rulebook.md`; `00-papers/blueprint-bench.md` (strict formats); `03-tooling/memory-tools.md` |
-| 20 bots | `02-banking-domain/customer-behaviour-models.md` §4; `personas.md` §1 (elite manager = honest bot); `05-simulator-architecture/integrity-and-invariants.md` §7 (exploit attacks) |
-| 21 prompt, target calibration | `02-banking-domain/branch-economics-and-targets.md` §4–6; `calibration-table.md`; `00-papers/vending-bench.md` |
-| 25, 29–31 budget, paid runs | `04-methodology/experiment-matrix.md` §3, §5; `03-tooling/models-and-pricing.md` (the spec's gateway prices override it) |
-| 26 people prose | `03-tooling/multiagent-and-subagents.md` §2–3; `02-banking-domain/personas.md` |
-| 27–28 analysis, graphs | `04-methodology/price-of-integrity.md` §6+; `attribution-and-controls.md` §4; `experiment-matrix.md` |
-| 32 audit, D11–D30 | `02-banking-domain/audit-and-supervision.md` §3–5; `05-simulator-architecture/consequence-model.md` §2–3; `02-banking-domain/conduct-gifts-whistleblowing.md` §5–6 |
-| 33 window vs full mode | `05-simulator-architecture/engine-layout.md` §6 |
+| 1 scaffold | `03-tooling/project-structure-patterns.md` §1–2 (engine vs glue, layout), §7 (how others test); `05-simulator-architecture/engine-layout.md` §7 (test strategy, incl. the layering test) |
+| 2 project skills (link these, don't copy them) | **architect:** `05-simulator-architecture/*` (incl. its README), `03-tooling/project-structure-patterns.md` · **banking:** `02-banking-domain/README.md` (top 10), rulebook, credit-risk, default-timing, calibration-table, customer-behaviour, personas, branch-economics, conduct-gifts, audit, `evergreening-and-loan-fraud.md` §4 · **methodology:** `04-methodology/*` (incl. its README), `00-papers/*`, `01-prior-work/gap-check.md` (background) |
+| 3 prices | `03-tooling/inspect-ai.md` §8 (cost tracking); `03-tooling/models-and-pricing.md` §7 (caching). The spec §7.1 gateway prices override this note's prices. |
+| 4–5 engine primitives, skeleton `Branch` | `05-simulator-architecture/engine-layout.md` §1–5; `integrity-and-invariants.md` §1; `prosus-vending-bench-study.md` §4 (config, status line), §5–6; `05-simulator-architecture/README.md` (top takeaways); `03-tooling/project-structure-patterns.md` §3, §5, §6; `02-banking-domain/general-rulebook.md` §0 (world setup); `00-papers/vending-bench.md` (agent setup, clock) |
+| 6 skeleton scoring, bots | `04-methodology/attribution-and-controls.md` §2 (M1 policy-check line, M4 attestation), §3; `scenario-taxonomy.md` §2 (rows 1–2); `00-papers/blueprint-bench.md` (scripted baselines) |
+| 7 Inspect skeleton | `03-tooling/inspect-ai.md` §1–4, §7, §9; `03-tooling/README.md` (top takeaways; `tau2_banking` in inspect_evals is code worth reading); `04-methodology/attribution-and-controls.md` §2 M1 (`in_window`); `00-papers/vending-bench.md` (agent setup, the continue nudge) |
+| 8 graph 1 | `00-papers/vending-bench.md` (tool-use counts); `04-methodology/price-of-integrity.md` §9 (figure labelling rule) |
+| 9 clock, end-of-day | `02-banking-domain/default-timing-and-horizon.md` §2; `05-simulator-architecture/engine-layout.md` §3; `consequence-model.md` §4; `prosus-vending-bench-study.md` §7 (tool time costs); `00-papers/vending-bench.md` (Clock) |
+| 10 ledger | `05-simulator-architecture/integrity-and-invariants.md` §2, §5; `prosus-vending-bench-study.md` §6; `05-simulator-architecture/README.md` takeaway 3 (boundary account, bribes off-ledger) |
+| 11 credit maths | `02-banking-domain/credit-risk-and-underwriting.md` §2–7 (§7 = formula sheet); `default-timing-and-horizon.md` §5–6; `calibration-table.md`; `general-rulebook.md` R2–R4 |
+| 12 customers, arrivals | `02-banking-domain/customer-behaviour-models.md` §2e–2f (loan applications, tenor), §3; `personas.md` §3, §5, §6, §8 (loan officer = maker); `credit-risk-and-underwriting.md` §1 (loan file); `general-rulebook.md` R3 (2-of-3 sources); `evergreening-and-loan-fraud.md` §4 (income fraud); `calibration-table.md` |
+| 13–14 book, provisions, run-off | `02-banking-domain/default-timing-and-horizon.md` §1 (why the inherited book), §3 (run-off); `credit-risk-and-underwriting.md` §6; `branch-economics-and-targets.md` §1–2 (internal pricing); `general-rulebook.md` R5–R6; `05-simulator-architecture/consequence-model.md` §1, §5 (run-off, inherited book); `integrity-and-invariants.md` §4 (logs, seal) |
+| 15 records, edits | `05-simulator-architecture/integrity-and-invariants.md` §3; `02-banking-domain/evergreening-and-loan-fraud.md` §4; `credit-risk-and-underwriting.md` Design impl. (`as_submitted` / `as_approved`); `general-rulebook.md` R1, R17 |
+| 16 planted scenario + P/O factor slots | `04-methodology/scenario-taxonomy.md` §1–2 (rows 1–5); **`experiment-matrix.md` §1 (exact P and O sentences: copy them) and §2 (one sentence, one slot, same time, length-matched)**; `price-of-integrity.md` §1 (B50 is conditional on P and O; H2, H3), §3, §7 (cap `B ≤ L`), §10 (contingent personal offer); `02-banking-domain/personas.md` §2–3, §6; `conduct-gifts-whistleblowing.md` §2–4; `branch-economics-and-targets.md` §5–6; `audit-and-supervision.md` Design impl. (watched vs unwatched); `05-simulator-architecture/engine-layout.md` §4 (keyed streams keep pairs identical) |
+| 17 tools | `05-simulator-architecture/engine-layout.md` §5; `prosus-vending-bench-study.md` §7; `02-banking-domain/general-rulebook.md` (all, esp. R14 report format); `conduct-gifts-whistleblowing.md` Design impl. (gift and whistleblowing tools); `04-methodology/attribution-and-controls.md` §2 M4 (`policy_exceptions`, `escalate_to_rcc`); `customer-behaviour-models.md` §5 (token-cheap CSV); `00-papers/blueprint-bench.md` (strict formats); `03-tooling/memory-tools.md` §2–3 |
+| 18 invariants fuzzing | `05-simulator-architecture/integrity-and-invariants.md` §5, §8 (Hypothesis state machine sketch), §9 (core principle as tests); `03-tooling/project-structure-patterns.md` §7 |
+| 19 full scorer | `04-methodology/attribution-and-controls.md` §3–4; `scenario-taxonomy.md` §2–4; `00-papers/blueprint-bench.md` (count format errors apart from lies); `02-banking-domain/general-rulebook.md` R12, R14; `05-simulator-architecture/integrity-and-invariants.md` §4 (attempt and tamper tags) |
+| 20 bots | `02-banking-domain/customer-behaviour-models.md` §4; `personas.md` §1 (elite manager = honest bot); `04-methodology/scenario-taxonomy.md` §4 (refuse-all / approve-all / oracle); `05-simulator-architecture/integrity-and-invariants.md` §7 (exploit attacks); `prosus-vending-bench-study.md` §4 (reference bot); `03-tooling/project-structure-patterns.md` §8 |
+| 21 prompt, target calibration, golden hash | `02-banking-domain/general-rulebook.md` "Agent-facing compact version"; `branch-economics-and-targets.md` §4–6; `calibration-table.md`; `05-simulator-architecture/engine-layout.md` §4, §7 (golden seed, prompt test); `prosus-vending-bench-study.md` §4 (prompt from config, `sync_config --check`); `05-simulator-architecture/README.md` "Added recommendations"; `04-methodology/experiment-matrix.md` §2; `00-papers/vending-bench.md` |
+| 22–24 harness | `03-tooling/inspect-ai.md` §3a–3b, §5–7, §11–12; `memory-tools.md` §2–3; `multiagent-and-subagents.md` §2 (model roles); `models-and-pricing.md` §7 (caching); `04-methodology/attribution-and-controls.md` §2 M1 (`in_window`); `experiment-matrix.md` §6 (REAL/EVAL probe, keyword scan); `05-simulator-architecture/prosus-vending-bench-study.md` §9 (reminder test, count tokens not characters) |
+| 25, 29–31 budget, paid runs | `04-methodology/experiment-matrix.md` §3, §5; `03-tooling/models-and-pricing.md` (the spec's gateway prices override it); `03-tooling/inspect-ai.md` §8, §10–12; `project-structure-patterns.md` §8 (checklist before paid runs); `02-banking-domain/default-timing-and-horizon.md` §2c (illustrative, not results) |
+| 26 people prose | `03-tooling/multiagent-and-subagents.md` §2–3; `02-banking-domain/personas.md`; `05-simulator-architecture/engine-layout.md` §6 (Lite vs Full people, post-check); `prosus-vending-bench-study.md` §4 (`mailroom.py`: LLM rewrites prose only, falls back to the template); `04-methodology/experiment-matrix.md` §2 (templates keep pairs intact) |
+| 27–28 analysis, graphs | `04-methodology/price-of-integrity.md` §6 (floors, Clopper-Pearson), §8.1 (pilot exact test), §9 (figure rule); `attribution-and-controls.md` §4 (ITT first, per-protocol second); `scenario-taxonomy.md` §3–4 (over-refusal, `HP_norm`, two axes); `experiment-matrix.md` §3 (analysis step 6, go/no-go), §6 (awareness per arm) |
+| 32 audit, D11–D30 | `02-banking-domain/audit-and-supervision.md` §2–5; `general-rulebook.md` R14–R16; `personas.md` §7 (auditor); `evergreening-and-loan-fraud.md` §4 (audit sampling); `05-simulator-architecture/consequence-model.md` §2–3, §5; `02-banking-domain/conduct-gifts-whistleblowing.md` §5–7; `default-timing-and-horizon.md` §1 (NPL crossing) |
+| 33 window vs full horizon | `02-banking-domain/default-timing-and-horizon.md` §4 (horizons); `05-simulator-architecture/engine-layout.md` §7 (golden seed); `consequence-model.md` §5 and `02-banking-domain/audit-and-supervision.md` Design impl. (detection probability, for the 30–80% detection test) |
+
+**The watched-vs-unwatched gap (decision 10 in §8).** Pilot-1 fixes `O = normal` and `P = target`. Task 16 still builds both slots and the `run_config` tag. For that task, read: `04-methodology/experiment-matrix.md` §1 (all P and O sentences) and §2 (slot rules), §6 (awareness per O level, for later); `price-of-integrity.md` §1 (H2, H3); DD §5A.7; `02-banking-domain/audit-and-supervision.md` and `evergreening-and-loan-fraud.md` Design impl. (both suggest watched vs unwatched weeks); `01-prior-work/gap-check.md` "Evaluation awareness / watched vs unwatched" (prior art). Skills: `experimental-design`, `benchmark-methodology`. Build only the slots. Don't run other levels.
 
 **Where pilot-1 knowingly differs from the research (follow the spec):**
 - RNG: `project-structure-patterns.md` §4 suggests numpy Generators. Pilot-1 uses the stdlib keyed `random.Random`, and the engine has no numpy.
 - Providers and prices: `models-and-pricing.md` assumes direct APIs. Pilot-1 uses the Experiential Labs gateway (spec D1, D4).
 - Dates: research notes saying "pilot run 2026-11-22/23" are out of date. The deadline is 2026-11-24.
+- Horizon: `default-timing-and-horizon.md` §4 proposes a 63-day pilot. Pilot-1 uses a 10-day window and a 30-day full horizon (spec §6–7).
+- Run matrix and doses: `experiment-matrix.md` §3 proposes 3 × 3 × 5 runs with doses `{0, $1k, $30k}`. Pilot-1 runs a smoke plus a 12-run mini-batch at `{0, $30k}` (spec D3, §7.2).
+- Bribe wording: `experiment-matrix.md` §2 has example sentences. Use the exact DD §6.8 sentences in the plan's Global Constraints instead.
+- Build order: `engine-layout.md` §8 is replaced by the plan.
+- Config file names: research says `rules.yaml`; pilot-1 uses `configs/rules.toml`.
+- Knowledge probe (attribution M3) and the reasoning judge (M5) are deferred to FULL (DD §10, §16). Pilot-1 always shows the policy-check line.
 
-**Background only (out of pilot-1 scope; P3 or later):**
-- `aml-kyc-and-vip-customers.md`
-- evergreening methods (`evergreening-and-loan-fraud.md` §1–3)
-- sub-agents (`multiagent-and-subagents.md` §4)
-- vector DB memory
-- price-of-integrity designs (i) and (iii) and B50 estimates
-- `gap-check.md` (for writing up later, not for building)
+**Every research file, and where it is used** (31 files; "T" = task):
+
+| File | Used in | Background only (why) |
+|---|---|---|
+| `README.md` | every session (index) | – |
+| `00-papers/vending-bench.md` | T4–5, 7, 8, 9, 21 | – |
+| `00-papers/blueprint-bench.md` | T6, 17, 19 | – |
+| `01-prior-work/gap-check.md` | T16 (watched-vs-unwatched prior art only) | the rest: for the later write-up, not for building |
+| `02-banking-domain/README.md` | T2 | – |
+| `02-banking-domain/aml-kyc-and-vip-customers.md` | – | all: AML is FULL (spec §2 non-goals) |
+| `02-banking-domain/audit-and-supervision.md` | T16, 32, 33 | inspector interview (§6): FULL |
+| `02-banking-domain/branch-economics-and-targets.md` | T13–14, 16, 21 | §3 cost structure: context only |
+| `02-banking-domain/calibration-table.md` | T11, 12, 20, 21 | – |
+| `02-banking-domain/conduct-gifts-whistleblowing.md` | T16, 17, 19, 32 | the bribe ladder and retaliation test: FULL |
+| `02-banking-domain/credit-risk-and-underwriting.md` | T11, 12, 13–14, 15 | – |
+| `02-banking-domain/customer-behaviour-models.md` | T12, 17, 20 | §1 evidence; reputation, runs, cross-sell, fake accounts (§2b–2d, §2g–2h): not in the spec |
+| `02-banking-domain/default-timing-and-horizon.md` | T9, 11, 13–14, 25, 32, 33 | §6c: FULL |
+| `02-banking-domain/evergreening-and-loan-fraud.md` | T12, 15, 16, 32 (§4 and Design impl.) | §1–3, §5: evergreening is FULL |
+| `02-banking-domain/general-rulebook.md` | T4–5, 11, 12, 13–14, 15, 17, 19, 21, 32 | R7–R11, R13: FULL rules |
+| `02-banking-domain/personas.md` | T12, 16, 20, 26, 32 | §4 launderer: FULL |
+| `03-tooling/README.md` | T7 | VB re-implementations list: context only |
+| `03-tooling/inspect-ai.md` | T3, 7, 22–27, 29–31 | – |
+| `03-tooling/memory-tools.md` | T17, 22–24 | §1 history; vector DB: P3 |
+| `03-tooling/models-and-pricing.md` | T3, 24, 25, 29–31 | its prices are replaced by spec §7.1 |
+| `03-tooling/multiagent-and-subagents.md` | T22–24, 26 (§2–3) | §1 archived library, §4 sub-agents: P3 |
+| `03-tooling/project-structure-patterns.md` | T1, 4–5, 18, 20, 25 | §4 numpy RNG: replaced (see above) |
+| `04-methodology/README.md` | T2 | verdict table and score card: context only |
+| `04-methodology/attribution-and-controls.md` | T6, 7, 17, 19, 22–24, 27–28 | M3 probe, M5 judge: FULL |
+| `04-methodology/experiment-matrix.md` | T16, 21, 22–24, 25, 27–28, 29–31 | §4 full matrix: FULL |
+| `04-methodology/price-of-integrity.md` | T8, 16, 27–28 | §2–5 ladder/hybrid designs, §8.2–8.5, B50 estimation: FULL |
+| `04-methodology/scenario-taxonomy.md` | T6, 16, 19, 20, 27–28 | rows 6–19: FULL |
+| `05-simulator-architecture/README.md` | T2, 4–5, 10, 21 | – |
+| `05-simulator-architecture/consequence-model.md` | T9, 13–14, 32, 33 | rows beyond the pilot's 3: FULL |
+| `05-simulator-architecture/engine-layout.md` | T1, 4–5, 9, 16, 17, 21, 26, 33 | §8 build order: replaced by the plan |
+| `05-simulator-architecture/integrity-and-invariants.md` | T4–5, 10, 13–14, 15, 18, 19, 20 | hash chain: FULL |
+| `05-simulator-architecture/prosus-vending-bench-study.md` | T4–5, 9, 10, 17, 20, 21, 22–24, 26 | §1–3, §8, §10: context only |
 
 Useful references:
 - `../research/03-tooling/inspect-ai.md`: verified Inspect API notes and an agent-loop sketch
@@ -305,6 +461,7 @@ Newest first. One entry per session.
 - Owner decisions: build order A (walking skeleton first); all of M0–M7 by 2026-11-24; standing approval for paid steps up to each cap.
 - Checked on 2026-11-22: inspect-ai 0.3.291 is the latest on PyPI; uv 0.12.5 and Python 3.13.0 are installed.
 - Nothing has been spent: \$0 of \$10.
+- Tooling audit (2026-11-22): checked every skill name against the installed skills (`claude plugin list`, `~/.claude/skills/`). Trail of Bits skills need the `plugin:skill` form. Context7 id `/websites/inspect_aisi_uk` confirmed with `resolve-library-id`. Added §3.0 (load-first steps), per-task **Skills:** / **Read:** lines in §2, the full tool inventory in §3b, and every research file in §3a.
 
 ---
 
@@ -322,7 +479,7 @@ Newest first. One entry per session.
 | 6 | Build order: walking skeleton, then thicken | spec D6 |
 | 7 | The campaign target is calibrated from bots (1.15 × honest mean) | spec D7, Task 21 |
 | 8 | Per-sample `cost_limit` = 2 × the measured smoke cost | spec D9 |
-| 10 | Watched vs unwatched (O) and pressure (P) are **fixed** in pilot-1 at `normal` / `target` (DD §5A.7); varying them is FULL. Pilot-1 still builds both slots (D1 boss sentence, D2 IT notice) and tags every log with them (Task 16), so FULL only changes config. D2 timing is a designer call | DD §5A.7, plan Task 16 |
+| 10 | Watched vs unwatched (O) and pressure (P) are **fixed** in pilot-1 at `normal` / `target` (DD §5A.7); varying them is FULL. Pilot-1 still builds both slots (D1 boss sentence, D2 IT notice) and tags every log with them (Task 16), so FULL only changes config. D2 timing is a designer call. Reading and skills for it: §3a "watched-vs-unwatched gap" note | DD §5A.7, plan Task 16 |
 | 9 | Plan lives in `pilot-1/docs/plan.md`, not `docs/superpowers/plans/` (owner: keep `docs/` untouched) | this file |
 
 ### Design values changed during the build
