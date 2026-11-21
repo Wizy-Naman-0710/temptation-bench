@@ -143,6 +143,52 @@ Check `../claude-tooling/README.md` for what each skill is for. **Superpowers is
 | S5 | `superpowers:verification-before-completion` **before every paid step** | `dataviz`, `scientific-visualization`, `statistical-analysis` |
 | S6 | `superpowers:requesting-code-review`, `superpowers:finishing-a-development-branch` | `banking-simulation-domain` |
 
+### 3a. Research reading map (read before each task)
+
+The research in `../research/` is the *why* behind every number and rule. Read the listed notes (and sections) before starting a task.
+
+**How the research fits the scope:**
+- The spec and the design doc (DD) decide what pilot-1 builds. The research explains why.
+- If a research note and the spec disagree, **follow the spec**, and add a note in §8 if it matters.
+- If a research note describes something outside pilot-1, treat it as background only. Don't build it.
+
+Start with `../research/README.md` (the index) once per session.
+
+| Task(s) | Read in `../research/` |
+|---|---|
+| 2 (project skills: link these, don't copy them) | **architect:** `05-simulator-architecture/*`, `03-tooling/project-structure-patterns.md` · **banking:** `02-banking-domain/*` (rulebook, credit-risk, default-timing, calibration-table, customer-behaviour, personas, branch-economics, conduct-gifts, audit) · **methodology:** `04-methodology/*`, `00-papers/*`, `01-prior-work/gap-check.md` |
+| 4–5 engine primitives, skeleton `Branch` | `05-simulator-architecture/engine-layout.md` §1–5; `integrity-and-invariants.md` §1; `prosus-vending-bench-study.md` §5–6; `03-tooling/project-structure-patterns.md` §3, §5, §6; `00-papers/vending-bench.md` (agent setup, clock) |
+| 6, 19 scoring | `04-methodology/attribution-and-controls.md` §3; `scenario-taxonomy.md` §2–4 |
+| 7, 22–24 Inspect harness | `03-tooling/inspect-ai.md` (all); `memory-tools.md` §2–3; `multiagent-and-subagents.md` §2 (model roles); `04-methodology/experiment-matrix.md` §6 (eval-awareness) |
+| 9 clock, end-of-day | `02-banking-domain/default-timing-and-horizon.md` §2; `05-simulator-architecture/engine-layout.md` §3; `consequence-model.md` §4 |
+| 10, 18 ledger, invariants | `05-simulator-architecture/integrity-and-invariants.md` §2, §5–7; `prosus-vending-bench-study.md` §6 |
+| 11 credit maths | `02-banking-domain/credit-risk-and-underwriting.md` §3–6; `default-timing-and-horizon.md` §5–6; `calibration-table.md` |
+| 12 customers, arrivals | `02-banking-domain/customer-behaviour-models.md` §2–3; `personas.md` §3, §5, §6; `evergreening-and-loan-fraud.md` §4 (income fraud); `calibration-table.md` |
+| 13–14 book, provisions, run-off | `02-banking-domain/default-timing-and-horizon.md` §3; `credit-risk-and-underwriting.md` §6; `branch-economics-and-targets.md` §1–2 (internal pricing); `general-rulebook.md` R5 |
+| 15 records, edits | `05-simulator-architecture/integrity-and-invariants.md` §3; `02-banking-domain/evergreening-and-loan-fraud.md` §4 |
+| 16 planted scenario | `04-methodology/scenario-taxonomy.md`; `price-of-integrity.md` §3; `experiment-matrix.md` §2 (minimal pairs); `02-banking-domain/personas.md` §2–3; `conduct-gifts-whistleblowing.md` §3–4; `branch-economics-and-targets.md` §5–6 |
+| 17 tools | `05-simulator-architecture/engine-layout.md` §5; `02-banking-domain/general-rulebook.md`; `00-papers/blueprint-bench.md` (strict formats); `03-tooling/memory-tools.md` |
+| 20 bots | `02-banking-domain/customer-behaviour-models.md` §4; `personas.md` §1 (elite manager = honest bot); `05-simulator-architecture/integrity-and-invariants.md` §7 (exploit attacks) |
+| 21 prompt, target calibration | `02-banking-domain/branch-economics-and-targets.md` §4–6; `calibration-table.md`; `00-papers/vending-bench.md` |
+| 25, 29–31 budget, paid runs | `04-methodology/experiment-matrix.md` §3, §5; `03-tooling/models-and-pricing.md` (the spec's gateway prices override it) |
+| 26 people prose | `03-tooling/multiagent-and-subagents.md` §2–3; `02-banking-domain/personas.md` |
+| 27–28 analysis, graphs | `04-methodology/price-of-integrity.md` §6+; `attribution-and-controls.md` §4; `experiment-matrix.md` |
+| 32 audit, D11–D30 | `02-banking-domain/audit-and-supervision.md` §3–5; `05-simulator-architecture/consequence-model.md` §2–3; `02-banking-domain/conduct-gifts-whistleblowing.md` §5–6 |
+| 33 window vs full mode | `05-simulator-architecture/engine-layout.md` §6 |
+
+**Where pilot-1 knowingly differs from the research (follow the spec):**
+- RNG: `project-structure-patterns.md` §4 suggests numpy Generators. Pilot-1 uses the stdlib keyed `random.Random`, and the engine has no numpy.
+- Providers and prices: `models-and-pricing.md` assumes direct APIs. Pilot-1 uses the Experiential Labs gateway (spec D1, D4).
+- Dates: research notes saying "pilot run 2026-11-22/23" are out of date. The deadline is 2026-11-24.
+
+**Background only (out of pilot-1 scope; P3 or later):**
+- `aml-kyc-and-vip-customers.md`
+- evergreening methods (`evergreening-and-loan-fraud.md` §1–3)
+- sub-agents (`multiagent-and-subagents.md` §4)
+- vector DB memory
+- price-of-integrity designs (i) and (iii) and B50 estimates
+- `gap-check.md` (for writing up later, not for building)
+
 Useful references:
 - `../research/03-tooling/inspect-ai.md`: verified Inspect API notes and an agent-loop sketch
 - `../claude-tooling/inspect-ai-context.md`: index of Inspect doc pages

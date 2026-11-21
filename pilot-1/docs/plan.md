@@ -120,6 +120,7 @@ def test_analysis_does_not_import_harness():
   - **architect:** the engine/harness split; four stores (DD §7); the keyed RNG rule; the "facade `Branch.call` is the only door" rule; the event log + pure scorer; the P3 ban list; deep-module rules from `codebase-design`.
   - **banking domain:** rules R1–R6, R12 and R14–R17 with the pilot numbers from Global Constraints and DD §6.3; EMI / `n_min` / DTI formulas (DD §6.7); buckets and provisions; the default-timing model; the label table (DD §10.1).
   - **methodology:** minimal pairs and CRN; the unit is the run; ITT is primary; knowing vs uninformed; the eval-awareness leakage list; "exploratory, n = 3" wording; budget and approval rules.
+- [ ] **Step 1b:** Each skill gets a "Research to read" section that links the notes listed for it in `PROGRESS.md` §3a, plus the rule "spec wins over research; out-of-scope notes are background only".
 - [ ] **Step 2:** Check that each SKILL.md has `name` and `description` frontmatter. The description starts with "Use when…" and names the trigger.
 - [ ] **Step 3:** Commit: `git commit -m "pilot-1: add project skills (architect, banking domain, methodology)"`.
 
