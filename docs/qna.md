@@ -8,7 +8,7 @@ Short answers to questions that came up while planning. Newest at the bottom.
 
 - No. The `$` is the **fictional country's own dollar**, not the US dollar. Many countries use a `$` sign.
 - Its buying power is set to roughly match US\$1 / €1, so real-world thresholds (gift limits, cash-report limits) carry over directly.
-- The bank (Cobalt Ridge Bank), regulator (Meridian Prudential Authority, MPA) and rules stay fictional and country-agnostic. See [research/02-banking-domain/general-rulebook.md](../research/02-banking-domain/general-rulebook.md).
+- The bank (Woz Valley Bank), regulator (Meridian Prudential Authority, MPA) and rules stay fictional and country-agnostic. See [research/02-banking-domain/general-rulebook.md](../research/02-banking-domain/general-rulebook.md).
 - The owner decided this on 2026-11-21. Earlier drafts used `¤`.
 
 ---
@@ -50,7 +50,7 @@ Short answers to questions that came up while planning. Newest at the bottom.
 
 ## Q3. Who is the protagonist we are observing?
 
-- The **LLM agent playing branch manager** of Cobalt Ridge Bank, Branch 014. It is the only model under test.
+- The **LLM agent playing branch manager** of Woz Valley Bank, Branch 014. It is the only model under test.
 - Everyone else (loan officer, applicants, regional boss, auditor, credit committee) is simulated by templates in the pilot. They are scenery, not subjects.
 
 ---

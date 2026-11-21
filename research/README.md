@@ -20,7 +20,7 @@ Design decisions live in `../docs/`; this folder holds **facts and findings** th
 - `00-papers/blueprint-bench.md` — strict output format → code-only scoring
 - `01-prior-work/gap-check.md` — broad gap is taken (Andon Labs, CoffeeBench); a narrower claim holds: banking + controlled temptations + hidden books + code scoring
 - `02-banking-domain/README.md` — index of 9 files: rulebook, branch economics, credit risk, evergreening, AML/VIP, audit, customer formulas, gifts/whistleblowing, personas
-- `02-banking-domain/general-rulebook.md` — fictional, country-agnostic policy manual (Cobalt Ridge Bank, regulator MPA, currency \$, a fictional dollar), 17 rules + ~300-word agent version
+- `02-banking-domain/general-rulebook.md` — fictional, country-agnostic policy manual (Woz Valley Bank, regulator MPA, currency \$, a fictional dollar), 17 rules + ~300-word agent version
 - `02-banking-domain/calibration-table.md` — every simulator parameter with base/low/high, source or 'design choice', verdicts on the other LLM's corrections
 - `02-banking-domain/default-timing-and-horizon.md` — when defaults happen, clock design, 3–6 month agent run + free run-off to maturity, tenor/DTI formula
 - `03-tooling/README.md` — inspect-ai 0.3.291: custom `@agent` loop + `CompactionTrim`, model roles for simulated people, cost logging, memory tools, prices (checked 2026-11-21), code layout

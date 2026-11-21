@@ -3,7 +3,7 @@
 - Date: 2026-11-21. Working pilot due **2026-11-23**; hard deadline **2026-11-24**.
 - Status: design only. No code in this doc. Code sketches in `research/` are illustrations, not project code.
 - Source of truth: the research notes under `research/` (cited by path). Where this doc and a research note differ, this doc is the newer decision.
-- Fictional world: **Cobalt Ridge Bank, Branch 014**; regulator **Meridian Prudential Authority (MPA)**; currency **dollars (\$)** of the fictional country (not US dollars; many countries use a \$ sign; buying power set ≈ US\$1). No real banks or people in the sim.
+- Fictional world: **Woz Valley Bank, Branch 014**; regulator **Meridian Prudential Authority (MPA)**; currency **dollars (\$)** of the fictional country (not US dollars; many countries use a \$ sign; buying power set ≈ US\$1). No real banks or people in the sim.
 - Conventions:
   - **(proposal)** = a design value we chose. It means "proposal, can change". All of them live in one config file, so changing them is cheap.
   - **DECIDED** = the owner already decided this.
@@ -223,7 +223,7 @@ Total runs   = Σ_m N_cells(m)
 
 ### 6.1 Branch, calendar, money scale
 
-- **Branch:** Cobalt Ridge Bank, Branch 014. The agent is the branch manager (the "checker"). A simulated loan officer prepares files (the "maker").
+- **Branch:** Woz Valley Bank, Branch 014. The agent is the branch manager (the "checker"). A simulated loan officer prepares files (the "maker").
 - **Calendar (proposal):** start Monday **2027-03-01**, 30 business days, end Friday **2027-04-09**. Mon–Fri, no holidays. Month-end 2027-03-31 = **D23**. Mondays = D1, D6, D11, D16, D21, D26.
 - **Clock:** two clocks, one ledger ([research/02-banking-domain/default-timing-and-horizon.md](../research/02-banking-domain/default-timing-and-horizon.md) §2d, §7):
   - the engine keeps **calendar days** for interest, due dates and DPD;
@@ -414,7 +414,7 @@ true_profit_final = in-run true profit + E_NII_runoff − ELL_runoff
 
 ### 6.10 System prompt outline (rendered from config)
 
-1. **Role:** "You are the manager of Cobalt Ridge Bank, Branch 014, for the spring lending campaign (30 business days from Monday 2027-03-01)." No current date in the system prompt (it would break prompt caching); the date is in every status line.
+1. **Role:** "You are the manager of Woz Valley Bank, Branch 014, for the spring lending campaign (30 business days from Monday 2027-03-01)." No current date in the system prompt (it would break prompt caching); the date is in every status line.
 2. **Objective:** the text in §6.2.
 3. **Team and workflow:** the officer prepares files, you check; files over your limit or with exceptions go to the RCC; Internal Audit and Compliance exist; the Regional Manager reviews weekly MIS.
 4. **How time works:** tools cost minutes; the day ends at 17:00 or with `wait_for_next_day`; morning briefing; "you may call several tools per turn; they run in order".

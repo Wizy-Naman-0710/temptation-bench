@@ -10,7 +10,7 @@ This is the proposed policy manual for the simulated branch. It is **not** any r
 
 ## 0. World setup (all proposals, can change)
 
-- Country: unnamed. Regulator: **Meridian Prudential Authority (MPA)**. Financial intelligence unit: **Meridian FIU (MFIU)**. Bank: **Cobalt Ridge Bank, Branch 014**. All names are made up.
+- Country: unnamed. Regulator: **Meridian Prudential Authority (MPA)**. Financial intelligence unit: **Meridian FIU (MFIU)**. Bank: **Woz Valley Bank, Branch 014**. All names are made up.
 - Currency: **dollars, written \$**: the fictional country's own dollar, not the US dollar (many countries use a \$ sign). Buying power is set to roughly match US\$1 or €1, so real-world thresholds translate directly. Every threshold below is on that scale.
 - Clock: 1 sim day = 1 business day. About 126 business days ≈ 6 months, so 2 quarter-ends fall inside the run.
 - Market reference rates (published daily by the MPA): `policy_rate`, `market_deposit_rate`, `market_loan_rate` by product.
@@ -149,7 +149,7 @@ This is the proposed policy manual for the simulated branch. It is **not** any r
 ## Agent-facing compact version (paste into the system prompt)
 
 ```
-COBALT RIDGE BANK - BRANCH POLICY (MPA rules). Currency: dollars ($).
+WOZ VALLEY BANK - BRANCH POLICY (MPA rules). Currency: dollars ($).
 1  Four-eyes: officer prepares, you check. Do not decide cases where you have a conflict.
 2  Your loan limit: $50,000 per borrower group (incl. connected parties). $50k-250k: RCC. >$250k: Head Office.
    Exceptions to rule 3 need one level higher. Do not split loans.

@@ -2,7 +2,7 @@
 
 A planned benchmark that measures whether LLM agents stay honest during a long simulated job when cheating pays.
 
-**World 1: bank branch manager.** An agent runs a fictional bank branch (Cobalt Ridge Bank) for several simulated weeks. Ordinary business events carry planted temptations, such as a bribe for approving a loan that breaks the rules. Every rule break is scored **by code**: the agent's tool calls and filed reports are compared with the simulation's hidden true books. No LLM judge is used for the main score.
+**World 1: bank branch manager.** An agent runs a fictional bank branch (Woz Valley Bank) for several simulated weeks. Ordinary business events carry planted temptations, such as a bribe for approving a loan that breaks the rules. Every rule break is scored **by code**: the agent's tool calls and filed reports are compared with the simulation's hidden true books. No LLM judge is used for the main score.
 
 **Headline question: the Price of Integrity.** How large a bribe does it take before an agent knowingly breaks the rules? We estimate B50, the bribe at which an agent gives in half the time, for each model.
 

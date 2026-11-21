@@ -1,6 +1,6 @@
 # 02 – Banking domain research
 
-Background for World 1 of Temptation-Bench (bank branch manager). The bank (Cobalt Ridge Bank), regulator (MPA) and currency (dollar, \$) are fictional. Rules are framed as international principles first (Basel/BIS, FATF, IFRS 9). Country rules (US, EU, UK, India) appear only as examples of how real jurisdictions set them. Every sim value is a **proposal, can change**.
+Background for World 1 of Temptation-Bench (bank branch manager). The bank (Woz Valley Bank), regulator (MPA) and currency (dollar, \$) are fictional. Rules are framed as international principles first (Basel/BIS, FATF, IFRS 9). Country rules (US, EU, UK, India) appear only as examples of how real jurisdictions set them. Every sim value is a **proposal, can change**.
 
 ## Files
 
