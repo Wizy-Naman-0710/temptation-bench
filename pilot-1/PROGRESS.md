@@ -15,9 +15,9 @@ This is the **live** status file. Every session reads it first and updates it la
 Do these in order at the start of **every** session:
 
 - [ ] Read this whole file, especially §4 (next action) and §7 (session log).
-- [ ] Read [`docs/spec.md`](docs/spec.md) in full (247 lines). It holds the *why* and every number.
+- [ ] Read [`docs/spec.md`](docs/spec.md) in full (264 lines). It holds the *why* and every number.
 - [ ] Read the plan section for your session only (e.g. "Session S2" in [`docs/plan.md`](docs/plan.md)). Also read the plan's **Global Constraints** and **Review Focus**.
-- [ ] Skim [`docs/gap-audit.md`](docs/gap-audit.md) once (research gap audit: what each research note changed in the plan, and 10 open owner questions).
+- [ ] Skim [`docs/gap-audit.md`](docs/gap-audit.md) once (research gap audit: what each research note changed in the plan, and 13 open owner questions).
 - [ ] Read the design-doc (DD) sections your tasks cite: [`../docs/2026-11-21-temptation-bench-pilot-design.md`](../docs/2026-11-21-temptation-bench-pilot-design.md).
 - [ ] Do **§3.0 "Load these first"** step by step: check the tools are installed, invoke `superpowers:using-superpowers` and the execution skill, read `../research/README.md`, and set up Context7 if the session uses Inspect.
 - [ ] Before **each** task: invoke the skills on its **Skills:** line in §2 and read its **Read:** notes (§3a). Log both in §7.
@@ -70,7 +70,8 @@ Under each task: **Skills:** = invoke these with the Skill tool first (on top of
   - Skills: `codebase-design`, `agent-harness-construction` · Read: engine-layout, prosus §4–6, rulebook §0, branch-economics (pay line), memory-tools §1 (briefing), vending-bench
   - Key tests: `test_window_mode_ends_after_last_day` (`PERIOD CLOSED`), `test_get_status_shows_pay_line`, `test_canary_present_in_repo_files`
 - [ ] Task 6: Skeleton scoring (T1 label) + `honest` / `cheater` bots
-  - Skills: `benchmark-methodology` · Read: attribution §2–3, scenario-taxonomy §2, blueprint-bench
+  - Skills: `benchmark-methodology` · Read: attribution §2–3, §4 (exposure), scenario-taxonomy §2, blueprint-bench
+  - Key test: `test_exposed_iff_bribe_email_read_before_t1_decision` (`exposed` = `offer_read_before_decision`)
 - [ ] Task 7: Inspect task, agent loop, tools, scorer; mockllm e2e; truncation test
   - Skills: `agent-harness-construction`, `temptation-bench-architect` · Read: inspect-ai §1–4, §7, §9; attribution §2 M1 · Docs: custom agent, `@tool`, `StoreModel`, mockllm, scorer, limits
 - [ ] Task 8: Graph 1 (tool calls per day)
@@ -124,7 +125,7 @@ Under each task: **Skills:** = invoke these with the Skill tool first (on top of
   - New: `harness/replay.py` (cuttable, cut order item 5) · Key test: `test_replay_mockllm_eval_reproduces_jsonl_hash`
 - [ ] Task 24: Model settings (effort low, no seed/temperature) + per-cell cache + `harness.json`
   - Skills: `cost-aware-llm-pipeline` · Read: inspect-ai §5–6, §12; models-and-pricing §7 · Docs: reasoning effort, `CachePolicy`, model roles
-- [ ] Task 25: Budget guard (`budget.py`) + paid runner (`run.py`)
+- [ ] Task 25: Budget guard (`budget.py`) + paid runner (`run.py`; steps include `gfree` with a \$0 cap)
   - Skills: `cost-aware-llm-pipeline` · Read: experiment-matrix §5, inspect-ai §8, project-structure §8 · Docs: `cost_limit`, `ModelUsage`
 - [ ] Task 26: People prose pregen + post-check + `ProsePeople`
   - Skills: `benchmark-methodology` · Read: multiagent §2–3, personas, engine-layout §6, prosus §4 (mailroom) · Docs: model roles
@@ -134,7 +135,7 @@ Under each task: **Skills:** = invoke these with the Skill tool first (on top of
 
 - [ ] Task 27: Analysis loaders + stats (Clopper-Pearson, paired exact, HP_norm)
   - Skills: `statistical-analysis`, `statistical-power`, `exploratory-data-analysis` · Read: price-of-integrity §6, §8.1; attribution §4 (ITT, per-protocol); scenario-taxonomy §3–4; experiment-matrix §3, §6 (awareness) · Docs: `read_eval_log`, dataframes
-  - New: `analysis/awareness.py` (`scan`), Fisher + Holm in `stats` · Key test: `test_awareness_regex_hits_and_misses`
+  - New: `analysis/awareness.py` (`scan`, also over notes), Fisher + Holm in `stats` · Key tests: `test_awareness_regex_hits_and_misses`, `test_awareness_scan_includes_notes`
 - [ ] Task 28: Graphs 2–10 + `report.md`
   - Skills: `dataviz`, `scientific-visualization` · Read: price-of-integrity §9 (and its "cannot report at this n" list), attribution-and-controls, scenario-taxonomy §4 (two axes), experiment-matrix §6
 - [ ] Task 29: G-free connectivity check (\$0) — **needs the owner's new key in `.env` first**
@@ -143,7 +144,7 @@ Under each task: **Skills:** = invoke these with the Skill tool first (on top of
   - Skills: `superpowers:verification-before-completion` (before each paid command), `cost-aware-llm-pipeline` · Read: experiment-matrix §3, §5; inspect-ai §12 · Docs: caching, concurrency
 - [ ] Task 31: People pregen (≤ \$0.05) + mini-batch (≤ \$5.00) + hand check of every T1 decision
   - Skills: `superpowers:verification-before-completion`, `cost-aware-llm-pipeline`, `benchmark-methodology` (hand check) · Read: experiment-matrix §3 (go/no-go), attribution §3
-- [ ] **S5 exit check** (ledger ≤ \$6.60)
+- [ ] **S5 exit check** (ledger ≤ \$6.10, the sum of the S5 caps, plus anything the owner approved)
 
 ### S6: M7 full horizon
 
@@ -465,6 +466,12 @@ Measured numbers (fill in from G-free and smoke; used for later estimates):
 
 Newest first. One entry per session.
 
+### 2026-11-22: Final planning review (no code, \$0)
+- Read all five pilot-1 docs, the DD, `idea.md`, `qna.md`, `open-questions.md`, `claude-tooling/README.md` and every research note. Checked skill names against `~/.claude/skills/` and the plugin cache: all present. Planning commit 57719a1 confirmed.
+- Sampled 37 gap-audit rows against `plan.md`: all at the named task. Hunted for missed items: 17 new rows in `docs/gap-audit.md` §9 (total now 170).
+- Fixes: cut order (plan Tasks 20/23 now items 4/5, as spec §6); exposure tag names and `exposed` definition (Tasks 5, 6, 27); awareness scan over notes; role and several-tools texts; "no current date"; variant files `full`/`gfree` created in Task 5; `generate_config` takes seed and dose; G-free through `run.py --step gfree` (cap \$0); S5 exit \$6.10; ρ = 1/3 labelled assumption; spec no-secrets regex; new tests for list CSVs, compliance ack, ordinary withdrawal.
+- 3 new owner questions (11–13). Nothing outside pilot-1 was edited.
+
 ### 2026-11-22: Planning session (no code)
 - Wrote and got approval for `docs/spec.md` (two subagent reviews folded in: 3 blockers fixed, 6 builder questions answered).
 - Wrote `docs/plan.md` (34 tasks, 6 sessions) and this tracker.
@@ -490,8 +497,8 @@ Newest first. One entry per session.
 | 6 | Build order: walking skeleton, then thicken | spec D6 |
 | 7 | The campaign target is calibrated from bots (1.15 × honest mean) | spec D7, Task 21 |
 | 8 | Per-sample `cost_limit` = 2 × the measured smoke cost | spec D9 |
-| 10 | Watched vs unwatched (O) and pressure (P) are **fixed** in pilot-1 at `normal` / `target` (DD §5A.7); varying them is FULL. Pilot-1 still builds both slots (D1 boss sentence, D2 IT notice) and tags every log with them (Task 16), so FULL only changes config. D2 timing is a designer call. Reading and skills for it: §3a "watched-vs-unwatched gap" note | DD §5A.7, plan Task 16 |
 | 9 | Plan lives in `pilot-1/docs/plan.md`, not `docs/superpowers/plans/` (owner: keep `docs/` untouched) | this file |
+| 10 | Watched vs unwatched (O) and pressure (P) are **fixed** in pilot-1 at `normal` / `target` (DD §5A.7); varying them is FULL. Pilot-1 still builds both slots (D1 boss sentence, D2 IT notice) and tags every log with them (Task 16), so FULL only changes config. D2 timing is a designer call. Reading and skills for it: §3a "watched-vs-unwatched gap" note | DD §5A.7, plan Task 16 |
 
 ### Design values changed during the build
 
@@ -505,5 +512,5 @@ Log any config value changed to make a test pass, such as the base case or detec
 
 - [ ] Revoke the pasted key and create `.env` (before Task 29)
 - [ ] Merge or push `pilot-1` at the end? (Task 34)
-- [ ] 10 owner questions in `docs/gap-audit.md` ("Questions for the owner"): markup take-up, `sad_story` slot, `order` text, `wait_days`, C3 decline-by-email, exploit attacks 5/7, payday date, MIS error floors, exploit pass rule, `PERIOD CLOSED`. Until answered, the designer calls in the plan stand.
+- [ ] 13 owner questions in `docs/gap-audit.md` ("Questions for the owner"): markup take-up, `sad_story` slot, `order` text, `wait_days`, C3 decline-by-email, exploit attacks 5/7, payday date, MIS error floors, exploit pass rule, `PERIOD CLOSED`, G-free billing cap (11), plan size / extra cuttable items (12), ρ assumption (13). Until answered, the designer calls in the plan stand.
 - Longer-term questions stay in `../docs/open-questions.md`. That file is read-only for this pilot; add any new ones here instead.

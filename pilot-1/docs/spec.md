@@ -127,7 +127,7 @@ Each milestone ends with something that runs end to end and a check that proves 
 | M3 | Harness complete | `CompactionTrim`, real `in_window` tracking, notes + reminders, nudges + auto-advance, turn/day caps, cost tracking, REAL/EVAL probe, `transcript().info` + `span("day-N")`; per-cell output cache scope (§7.2); spend guard (§7.3) | mockllm e2e over a 10-day window; reminder-fires test; **trim test**: threshold ≈ 2k tokens, assert `in_window` turns false once a review is trimmed out; cost appears in `ModelUsage` with test prices; truncation test still green |
 | M4 | People prose (P2) | `pregen_people` task, post-check, `ProsePeople` adapter (§5) | mockllm people role: the post-check rejects a changed number and a banned term; fallback logged; `prose` and `template` variants both pass the minimal-pair test |
 | M5 | Analysis + graphs | `analysis/` loaders (JSONL + `.eval` → pandas), all §8 graphs, `report.md` per batch | every graph renders from bot runs + a mockllm run |
-| G-free | Free connectivity check | one D1–D3 run on free `gpt-6-luna` with `token_limit` 800k (free tier: 1M tokens/day, 10 req/min, 250k input tokens/min); `GET /v1/models` confirms slugs; `GET /api/v1/credits` confirmed working; find where the upstream route appears (body or headers; add an httpx hook if headers only); confirm no extra count-tokens calls | real tool calls, status lines and usage in `.eval`; \$0 spent |
+| G-free | Free connectivity check | one D1–D3 run on free `gpt-6-luna` with `token_limit` 800k (free tier: 1M tokens/day, 10 req/min, 250k input tokens/min); `GET /v1/models` confirms slugs; `GET /api/v1/credits` confirmed working; find where the upstream route appears (body or headers; add an httpx hook if headers only); confirm no extra count-tokens calls | real tool calls, status lines and usage in `.eval`; \$0 spent; run through the budget guard (`run.py --step gfree`, cap \$0) |
 | M6 | Paid window runs | route check, smoke, mini-batch (§7.2), `pregen_people` for the pilot seeds | each step within its pre-approved cap, logged in the ledger; graphs + labels from real logs; hand check of every T1 |
 | M7 | Full horizon | D11–D30 events: NPL crossing D15–20, MIS #2–#5 + misstatement labels, one internal audit + findings + boss reprimand; mode-prefix test; then the optional paid full-horizon run (§7.2) | design doc §12 tests for these parts; mode-prefix test green; paid run only if money is left |
 
@@ -176,7 +176,7 @@ All estimates are **planning assumptions**, not results. They are recomputed fro
 ### 7.3 Spend guard (P1 "model cost tracking")
 
 - `pilot-1/budget/ledger.jsonl` (committed, no secrets): one line per paid eval: date, step, models, runs, estimate, actual cost from `.eval` `ModelUsage`, gateway balance before/after.
-- `budget.py check --estimate X` reads the gateway balance (`GET /api/v1/credits`, key from env) and the ledger, and **refuses** (non-zero exit) if `spent + X > 9.50`. The run script calls it before every paid eval.
+- `budget.py check --estimate X` reads the gateway balance (`GET /api/v1/credits`, key from env) and the ledger, and **refuses** (non-zero exit) if `spent + X > 9.50`. The run script calls it before every paid eval, and before the G-free run (cap \$0).
 - Each paid sample also gets an Inspect `cost_limit` = **2 × the measured smoke cost** for that model (smoke itself: \$1). This is a runaway stop, not a budget split: a cap equal to the expected cost would cut runs before D10. The step caps and the stop line carry the budget.
 - If `GET /api/v1/credits` errors, `budget.py check` refuses to run (fail closed).
 
@@ -209,7 +209,7 @@ pilot-1/
   README.md  pyproject.toml  uv.lock  .env.example  .gitignore
   docs/          spec.md (this) · plan.md (from writing-plans)
   .claude/skills/  temptation-bench-architect/  banking-simulation-domain/  benchmark-methodology/
-  configs/       world.toml  rules.toml  variants/{smoke,window,full,dose_*}.toml  pricing.yaml  people_prose/seed_*.json
+  configs/       world.toml  rules.toml  variants/{window,full,gfree}.toml  pricing.yaml  people_prose/seed_*.json
   src/temptation_bench/
     engine/      config money rng clock model ledger facts evidence records
                  arrivals credit people scenario consequences audit
@@ -236,7 +236,7 @@ pilot-1/
 ### 9.2 Tests (free)
 
 - Everything in design doc §12, scoped to the milestone that adds it (§6 table).
-- Plus pilot-1 tests: post-check of people prose; truncation still sealed and scored; `in_window` under a tiny trim threshold; prices registered for all gateway models; `budget.py` refuses over the line; plots render from a fixture run; no secrets in the repo (a test greps for `xpl_` followed by 40 hex characters); the canary GUID is in repo files but never in agent text; replay of a mockllm `.eval`'s tool calls gives the same JSONL hash (cuttable, §6).
+- Plus pilot-1 tests: post-check of people prose; truncation still sealed and scored; `in_window` under a tiny trim threshold; prices registered for all gateway models; `budget.py` refuses over the line; plots render from a fixture run; no secrets in the repo (a test greps for `xpl_` followed by 16 or more letters or digits); the canary GUID is in repo files but never in agent text; replay of a mockllm `.eval`'s tool calls gives the same JSONL hash (cuttable, §6).
 
 ## 10. Project skills (built in M0 with `anthropic-skills:skill-creator`)
 
