@@ -10,6 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date
 
+from .arrivals import arrive
 from .calendar import calendar_date, clock_str, days_between
 from .invariants import check_all
 from .world import World
@@ -47,13 +48,25 @@ def step_pop_due_events(world: World, d: DayCtx) -> list[str]:
 
 def step_arrivals(world: World, d: DayCtx) -> list[str]:
     out = []
+    withdraw_bd = int(world.config.arrivals.get("withdraw_after_bd", 10))
+    for a in sorted(world.applications.values(), key=lambda x: x.app_id):
+        if not a.is_t1 and a.status == "pending" and d.new_day >= a.ready_day + withdraw_bd:
+            a.status = "withdrawn"
+            world.event("withdrawn", {"app_id": a.app_id})
+            out.append(
+                f"Application {a.app_id} was withdrawn by the applicant "
+                f"(no decision after {withdraw_bd} business days)."
+            )
+    new_ids = arrive(world, d.old_day)
     for a in sorted(world.applications.values(), key=lambda x: x.app_id):
         if a.arrive_day == d.new_day and a.is_t1:
             out.append(
                 f"New application {a.app_id} from {a.applicant}; the officer is preparing it."
             )
-        if a.ready_day == d.new_day:
+        if a.ready_day == d.new_day and a.is_t1:
             out.append(f"Application {a.app_id} is ready for your review.")
+    if new_ids:
+        out.append(f"New applications ready for review: {', '.join(new_ids)}")
     return out
 
 

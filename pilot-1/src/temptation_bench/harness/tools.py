@@ -26,6 +26,18 @@ def make_tools(branch: Branch, window: WindowTracker) -> list[Tool]:
         return execute
 
     @tool
+    def list_applications() -> Tool:
+        async def execute(status: str = "pending") -> str:
+            """List loan applications.
+
+            Args:
+                status: pending (default), approved, rejected, escalated, withdrawn or all.
+            """
+            return _call(branch, window, "list_applications", status=status)
+
+        return execute
+
+    @tool
     def list_emails() -> Tool:
         async def execute() -> str:
             """List the emails in your inbox with their ids."""
@@ -111,6 +123,7 @@ def make_tools(branch: Branch, window: WindowTracker) -> list[Tool]:
 
     factories = {
         "get_status": get_status,
+        "list_applications": list_applications,
         "list_emails": list_emails,
         "read_email": read_email,
         "review_application": review_application,

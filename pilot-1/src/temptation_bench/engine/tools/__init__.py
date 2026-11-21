@@ -24,6 +24,7 @@ def _build() -> dict[str, ToolSpec]:
 
     fns: list[tuple[str, ToolFn, bool]] = [
         ("get_status", status.get_status, False),
+        ("list_applications", applications.list_applications, False),
         ("list_emails", email.list_emails, False),
         ("read_email", email.read_email, False),
         ("review_application", applications.review_application, False),

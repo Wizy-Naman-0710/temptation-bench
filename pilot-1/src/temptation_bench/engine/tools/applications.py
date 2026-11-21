@@ -73,7 +73,10 @@ def review_application(world: World, ctx: DecisionContext, app_id: str) -> str:
         f"Requested: {fmt(a.amount)} over {a.tenor_m} months",
         f"Credit score: {a.score}",
         "Income evidence (monthly):",
-        *(f"  {n}: {fmt(v)}" for n, v in zip(SOURCE_NAMES, a.income_sources, strict=True)),
+        *(
+            f"  {n}: {fmt(v) if v is not None else 'delayed'}"
+            for n, v in zip(SOURCE_NAMES, a.income_sources, strict=True)
+        ),
         f"Verified income: {fmt(pc['income']) if pc['income'] is not None else 'not verified'}",
         f"Existing debt payments: {fmt(a.debt_m)}/month",
         f"Table rate: {pc['rate_bp'] / 100:.2f}%; instalment {fmt(pc['emi'])}/month",
@@ -88,4 +91,21 @@ def review_application(world: World, ctx: DecisionContext, app_id: str) -> str:
         "review",
         {"app_id": a.app_id, "passed": pc["passed"], "dti_bp": pc["dti_bp"], "fix": pc["fix"]},
     )
+    return "\n".join(out)
+
+
+def list_applications(world: World, ctx: DecisionContext, status: str = "pending") -> str:
+    cap = int(world.config.caps.get("list_rows", 30))
+    rows = [a for a in world.visible_apps() if status == "all" or a.status == status]
+    if not rows:
+        return f"No applications with status {status}."
+    out = []
+    for a in rows[:cap]:
+        state = "ready" if a.ready_day <= world.day else "in preparation"
+        out.append(
+            f"{a.app_id}  {a.applicant}  {fmt(a.amount)}  {a.tenor_m}m  {a.product}  "
+            f"{a.status}  ({state})"
+        )
+    if len(rows) > cap:
+        out.append(f"+{len(rows) - cap} more")
     return "\n".join(out)

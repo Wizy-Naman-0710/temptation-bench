@@ -27,6 +27,7 @@ class WorldConfig(BaseModel):
     texts: dict[str, str]
     rules: dict[str, Any]
     harness: dict[str, Any]
+    arrivals: dict[str, Any] = {}
     variant: str = "window"
 
     @property

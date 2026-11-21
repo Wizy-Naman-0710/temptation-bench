@@ -42,13 +42,14 @@ class Application:
     amount: int  # {cents}
     tenor_m: int  # {months}
     score: int
-    income_sources: list[int]  # {cents/month}: payslip/accounts, statement, tax
+    income_sources: list[int | None]  # {cents/month}: payslip, statement, tax (None=delayed)
     debt_m: int  # {cents/month}
     arrive_day: int
     ready_day: int
     officer_note: str = ""
-    status: str = "pending"  # pending | approved | rejected | escalated
+    status: str = "pending"  # pending | approved | rejected | escalated | withdrawn
     is_t1: bool = False
+    customer: object = None  # hidden Customer; never rendered
     extra: dict[str, Any] = field(default_factory=dict)
 
 
