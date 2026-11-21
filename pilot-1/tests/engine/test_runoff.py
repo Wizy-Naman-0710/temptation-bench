@@ -175,12 +175,10 @@ def _app(score: int) -> Application:
         "X",
         "C-0500",
         "PERSONAL",
-        "p",
         1_500_000,
         36,
         score,
         [300_000, 300_000, 300_000],
-        20_000,
         1,
         2,
     )
@@ -238,7 +236,7 @@ def test_t1_placeholder_fate_uses_verified_income(make_branch):
     w = b._world
     a, x = w.applications["A-0001"], w.loans["A-0001"]
     income = verified_income(a.income_sources)
-    dti = (a.debt_m + x.schedule[0].payment) / income
+    dti = (w.records.original("A-0001").existing_debt_m + x.schedule[0].payment) / income
     assert x.pd_true == pd_true(pd_from_score(a.score), dti, False, False, False, True)
 
 

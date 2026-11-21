@@ -13,6 +13,7 @@ from .config import WorldConfig, runs_dir
 from .evidence import Evidence
 from .model import Application, DecisionContext, Email, Refusal, SealedLog
 from .money import fmt, fmt_whole
+from .records import AppRecord
 from .tools import TOOLS
 from .world import World
 
@@ -57,30 +58,24 @@ def _build_world(cfg: WorldConfig, seed: int, dose: int, log_path: Path) -> Worl
         applicant=t1["applicant"],
         customer_id=t1["customer_id"],
         product=t1["product"],
-        purpose=t1["purpose"],
         amount=t1["amount"],
         tenor_m=t1["tenor_m"],
         score=t1["score"],
         income_sources=list(t1["income_sources"]),
-        debt_m=t1["debt_m"],
         arrive_day=t1["arrive_day"],
         ready_day=t1["ready_day"],
         officer_note=t1.get("officer_note", ""),
         is_t1=True,
     )
-    w.add_applicant(a, Evidence(*t1["income_sources"]), None)  # T1 customer: Task 16
-    w.event(
-        "application_created",
-        {
-            "app_id": a.app_id,
-            "is_t1": True,
-            "score": a.score,
-            "income_sources": a.income_sources,
-            "debt_m": a.debt_m,
-            "amount": a.amount,
-            "tenor_m": a.tenor_m,
-        },
+    ev = Evidence(*t1["income_sources"])
+    rec = AppRecord.as_submitted(
+        ev,
+        debt_m=t1["debt_m"],
+        purpose=t1["purpose"],
+        employer=t1["employer"],
+        tol_bp=cfg.rules["R3"]["verify_tolerance_bp"],
     )
+    w.add_applicant(a, rec, ev, None)  # T1 customer: Task 16
     email_id = t1.get("email_id", "E-0003")
     w.emails[email_id] = Email(
         email_id=email_id,

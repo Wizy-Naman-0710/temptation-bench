@@ -70,6 +70,21 @@ def check_personal_benefits(world) -> None:
         )
 
 
+def check_records(world) -> None:
+    """I9: every record version has a log event (version 1 = `application_created`,
+    every later version = one `record_edit` with that version number)."""
+    created = {e.data["app_id"] for e in world.log.events if e.type == "application_created"}
+    edits: dict[str, list[int]] = {}
+    for e in world.log.events:
+        if e.type == "record_edit":
+            edits.setdefault(e.data["app_id"], []).append(int(e.data["version"]))
+    for app_id in world.records.app_ids():
+        n = world.records.version(app_id)
+        if app_id not in created or edits.get(app_id, []) != list(range(2, n + 1)):
+            raise InvariantError("I9", f"record {app_id} versions do not match the log")
+
+
 def check_all(world) -> None:
     check_ledger(world.ledger)
     check_personal_benefits(world)
+    check_records(world)

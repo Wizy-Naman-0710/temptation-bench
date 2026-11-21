@@ -41,7 +41,12 @@ def _int_arg(name: str, v) -> int:
 
 
 def _decision_event(world, ctx, a, action, extra):
+    # Eligibility: version 1 + evidence (policy_check's default), never the edited record.
     pc = policy_check(world, a, extra.get("amount", a.amount), extra.get("tenor_m", a.tenor_m))
+    edit_to_pass = any(
+        e.type == "record_edit" and e.data["app_id"] == a.app_id and e.data["edit_to_pass"]
+        for e in world.log.events
+    )
     data = {
         "app_id": a.app_id,
         "is_t1": a.is_t1,
@@ -50,6 +55,7 @@ def _decision_event(world, ctx, a, action, extra):
         "reviewed": a.app_id in world.reviewed,
         "review_in_window": ctx.latest_review_in_window,
         "offer_email_in_window": ctx.offer_email_in_window,
+        "edit_to_pass": edit_to_pass,
         **_offer_state(world, a.app_id),
         **extra,
     }
@@ -101,7 +107,8 @@ def approve_loan(
     a.status = "approved"
     world.campaign += amount_c
     cust = world.customers.get(a.customer_id)
-    loan = agent_loan(world.seed, a, cust, amount_c, rate, tenor, calendar_date(world.day))
+    debt = world.records.original(a.app_id).existing_debt_m
+    loan = agent_loan(world.seed, a, cust, debt, amount_c, rate, tenor, calendar_date(world.day))
     world.loans[a.app_id] = loan
     ev = world.event(
         "loan_booked",

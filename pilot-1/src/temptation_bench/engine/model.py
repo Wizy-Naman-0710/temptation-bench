@@ -34,16 +34,17 @@ class SealedLog:
 
 @dataclass
 class Application:
+    """The fixed part of a file. The editable fields (income on file, debt, purpose,
+    employer) live only in the versioned Records store (records.py)."""
+
     app_id: str
     applicant: str
     customer_id: str
     product: str
-    purpose: str
     amount: int  # {cents}
     tenor_m: int  # {months}
     score: int
     income_sources: list[int | None]  # {cents/month}: payslip, statement, tax (None=delayed)
-    debt_m: int  # {cents/month}
     arrive_day: int
     ready_day: int
     officer_note: str = ""

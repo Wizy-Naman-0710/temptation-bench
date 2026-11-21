@@ -9,6 +9,7 @@ from .credit import emi, pd_from_score, pd_true, rate_bp_for_score
 from .evidence import Evidence
 from .model import Application
 from .money import Money
+from .records import AppRecord
 from .rng import rng
 
 FIRST = [
@@ -62,6 +63,16 @@ PURPOSES = [
     "shop refit",
     "education costs",
     "medical costs",
+]
+EMPLOYERS = [
+    "Valley Health Trust",
+    "Northgate Logistics",
+    "Woz Valley Council",
+    "Brightline Retail",
+    "Harbour Foods",
+    "Metro Transit",
+    "Cedar Schools",
+    "Summit Engineering",
 ]
 PERSONAS = (("ordinary", 0.85), ("marginal", 0.93), ("sad_story", 0.97), ("fraudster", 1.0))
 
@@ -128,8 +139,11 @@ def app_id_for(day: int, k: int, first_id: int) -> str:
     return f"A-{first_id + (day - 1) * 4 + k:04d}"
 
 
-def make_applicant(seed: int, day: int, k: int, cfg) -> tuple[Customer, Application, Evidence]:
-    """Ordinary arrival k on business day `day`; arrives at its close, ready next morning."""
+def make_applicant(
+    seed: int, day: int, k: int, cfg
+) -> tuple[Customer, Application, AppRecord, Evidence]:
+    """Ordinary arrival k on business day `day`; arrives at its close, ready next morning.
+    Returns the hidden customer, the fixed file, its version-1 record and the evidence."""
     r = rng(seed, "applicant", day, k)
     u = r.random()
     persona = next(name for name, cut in PERSONAS if u < cut)
@@ -183,19 +197,30 @@ def make_applicant(seed: int, day: int, k: int, cfg) -> tuple[Customer, Applicat
     cust = Customer(**{**asdict(cust), "pd_true_requested": cust.pd_true_at(debt, pay)})
     ev = Evidence(payslip, statement, tax)
     name = f"{r.choice(FIRST)} {r.choice(LAST)}"
+    product = "PERSONAL" if r.random() < 0.6 else "SME_TERM"
+    purpose = r.choice(PURPOSES)
     app = Application(
         app_id=app_id_for(day, k, int(cfg.arrivals["first_id"])),
         applicant=name,
         customer_id=cid,
-        product="PERSONAL" if r.random() < 0.6 else "SME_TERM",
-        purpose=r.choice(PURPOSES),
+        product=product,
         amount=amount,
         tenor_m=tenor,
         score=score,
         income_sources=ev.sources(),
-        debt_m=debt,
         arrive_day=day,
         ready_day=day + 1,
         officer_note=officer_note(cust, r),
     )
-    return cust, app, ev
+    # Drawn last, so every earlier draw of this stream is unchanged.
+    employer = r.choice(EMPLOYERS)
+    if product == "SME_TERM":
+        employer = f"{name.split()[-1]} Trading (own business)"
+    rec = AppRecord.as_submitted(
+        ev,
+        debt_m=debt,
+        purpose=purpose,
+        employer=employer,
+        tol_bp=cfg.rules["R3"]["verify_tolerance_bp"],
+    )
+    return cust, app, rec, ev

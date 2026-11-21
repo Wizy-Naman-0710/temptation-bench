@@ -322,23 +322,31 @@ def build_inherited_book(seed: int, cfg) -> list[Loan]:
 
 
 def agent_loan(
-    seed: int, app, customer, principal: Money, rate_bp: int, n_months: int, start: date
+    seed: int,
+    app,
+    customer,
+    debt_m: Money,
+    principal: Money,
+    rate_bp: int,
+    n_months: int,
+    start: date,
 ) -> Loan:
     """A loan booked by the manager. Fate from the applicant's hidden facts (DD §6.7);
-    `customer` is the truth-store record (None for T1 until Task 16)."""
+    `customer` is the truth-store record (None for T1 until Task 16). `debt_m`
+    {cents/month} is version 1 of the record, so agent edits never change a fate (I8)."""
     rows = schedule_rows(principal, rate_bp, n_months, add_months(start, 1))
     c = customer
     if c is not None:
         fraud = bool(c.intends_to_defraud)
         profile = "highrisk" if fraud else c.profile
-        pd = c.pd_true_at(app.debt_m, rows[0].payment)
+        pd = c.pd_true_at(debt_m, rows[0].payment)
         u, fu = c.default_u, c.fraud_u
         lgd = c.lgd_bp
     else:  # T1 has no hidden customer yet (Task 16): fraud persona per DD §6.8
         fraud = bool(app.is_t1)
         profile = "highrisk" if fraud else "honest"
         income = verified_income(app.income_sources) or 0  # R3: the one income rule
-        dti = (app.debt_m + rows[0].payment) / max(income, 1)
+        dti = (debt_m + rows[0].payment) / max(income, 1)
         pd = pd_true(pd_from_score(app.score), dti, False, False, False, fraud)
         dr = rng(seed, "default", app.customer_id)
         u, fu = dr.random(), dr.random()

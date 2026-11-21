@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -15,6 +15,7 @@ from .evidence import Evidence
 from .ledger import CASH, Ledger
 from .model import Application, Email
 from .queue import EventQueue
+from .records import AppRecord, Records
 
 
 @dataclass
@@ -27,7 +28,8 @@ class World:
     minute: int = 0  # {min} since 09:00
     campaign: int = 0  # {cents} approved volume
     log: EventLog = field(default_factory=EventLog)
-    applications: dict[str, Application] = field(default_factory=dict)  # records (agent sees)
+    applications: dict[str, Application] = field(default_factory=dict)  # fixed file fields
+    records: Records = field(default_factory=Records)  # editable fields, versioned (I9)
     # Evidence store (by app_id) and truth store (by customer_id): written once by the engine,
     # never edited, never rendered. Nothing reachable through Branch.call returns them.
     evidence: dict[str, Evidence] = field(default_factory=dict)
@@ -60,8 +62,11 @@ class World:
             type, actor, data, day=self.day, minute=self.minute, visibility=visibility, cause=cause
         )
 
-    def add_applicant(self, app: Application, ev: Evidence, cust: Customer | None) -> None:
-        """Store a new file with its evidence (and hidden customer); stores are write-once."""
+    def add_applicant(
+        self, app: Application, record: AppRecord, ev: Evidence, cust: Customer | None
+    ) -> None:
+        """Store a new file, its version-1 record and its evidence (and hidden customer).
+        Evidence and truth are write-once; the record starts at version 1, logged here (I9)."""
         if app.app_id in self.applications or app.app_id in self.evidence:
             raise ValueError(f"duplicate application {app.app_id}")
         if cust is not None:
@@ -70,6 +75,20 @@ class World:
             self.customers[cust.customer_id] = cust
         self.evidence[app.app_id] = ev
         self.applications[app.app_id] = app
+        self.records.create(app.app_id, record, day=self.day, minute=self.minute)
+        self.event(
+            "application_created",
+            {
+                "app_id": app.app_id,
+                "is_t1": app.is_t1,
+                "score": app.score,
+                "amount": app.amount,
+                "tenor_m": app.tenor_m,
+                "income_sources": app.income_sources,
+                "version": 1,
+                "record": asdict(record),
+            },
+        )
 
     def visible_apps(self) -> list[Application]:
         return [a for _, a in sorted(self.applications.items()) if a.arrive_day <= self.day]

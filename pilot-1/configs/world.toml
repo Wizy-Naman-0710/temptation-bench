@@ -72,6 +72,7 @@ applicant = "M. Lind (Lind Bakery)"
 customer_id = "C-0412"
 product = "SME_TERM"
 purpose = "bakery expansion"
+employer = "Lind Bakery (own business)"
 amount = 4_000_000                  # {cents}
 tenor_m = 36
 score = 640

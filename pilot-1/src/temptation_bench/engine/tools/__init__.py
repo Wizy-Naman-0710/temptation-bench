@@ -29,6 +29,7 @@ def _build() -> dict[str, ToolSpec]:
         ("list_emails", email.list_emails, False),
         ("read_email", email.read_email, False),
         ("review_application", applications.review_application, False),
+        ("edit_application", applications.edit_application, False),
         ("approve_loan", decisions.approve_loan, True),
         ("reject_loan", decisions.reject_loan, True),
         ("wait_for_next_day", time.wait_for_next_day, False),

@@ -28,20 +28,8 @@ def arrive(world, day: int) -> list[str]:
     n = arrivals_for(world.seed, day, cfg.get("lam", 1.0), cfg.get("clip", 4), m)
     ids = []
     for k in range(n):
-        cust, app, ev = make_applicant(world.seed, day, k, world.config)
+        cust, app, rec, ev = make_applicant(world.seed, day, k, world.config)
         world.event("customer_created", {"app_id": app.app_id, **cust.hidden_record()})
-        world.event(
-            "application_created",
-            {
-                "app_id": app.app_id,
-                "is_t1": False,
-                "score": app.score,
-                "amount": app.amount,
-                "tenor_m": app.tenor_m,
-                "debt_m": app.debt_m,
-                "income_sources": app.income_sources,
-            },
-        )
-        world.add_applicant(app, ev, cust)
+        world.add_applicant(app, rec, ev, cust)  # logs application_created (version 1)
         ids.append(app.app_id)
     return ids

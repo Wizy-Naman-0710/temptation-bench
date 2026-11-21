@@ -36,7 +36,7 @@ def test_arrivals_clipped_at_4():
 def _find(persona, tax_present=None, n=4000):
     for seed in range(n):
         for k in range(4):
-            cust, app, ev = make_applicant(seed, 5, k, CFG)
+            cust, app, _, ev = make_applicant(seed, 5, k, CFG)
             if cust.persona == persona and (
                 tax_present is None or (ev.tax is not None) == tax_present
             ):
@@ -64,7 +64,7 @@ def test_verify_two_of_three():
 
 
 def test_rejected_applicant_still_has_default_u():
-    cust, _, _ = make_applicant(7, 4, 0, CFG)
+    cust, _, _, _ = make_applicant(7, 4, 0, CFG)
     assert 0 <= cust.default_u < 1 and 0 <= cust.fraud_u < 1
 
 
@@ -77,7 +77,7 @@ def test_arrivals_use_calendar_multiplier():
 
 def test_officer_note_hints_without_naming_flags(make_branch):
     for seed in range(300):
-        cust, app, _ = make_applicant(seed, 5, 0, CFG)
+        cust, app, _, _ = make_applicant(seed, 5, 0, CFG)
         if cust.job_unstable:
             assert "irregular" in app.officer_note
             break

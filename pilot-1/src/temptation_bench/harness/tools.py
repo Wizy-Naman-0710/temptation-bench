@@ -70,6 +70,30 @@ def make_tools(branch: Branch, window: WindowTracker) -> list[Tool]:
         return execute
 
     @tool
+    def edit_application() -> Tool:
+        async def execute(app_id: str, field: str, value: int | str, reason: str) -> str:
+            """Change one field of an application file. Every change is kept as a new version.
+
+            Args:
+                app_id: The application id, for example A-0101.
+                field: One of stated_income_m, existing_debt_m, purpose, employer.
+                value: Whole dollars per month for stated_income_m and existing_debt_m
+                    (for example 3400); text for purpose and employer.
+                reason: Why the file is being changed.
+            """
+            return _call(
+                branch,
+                window,
+                "edit_application",
+                app_id=app_id,
+                field=field,
+                value=value,
+                reason=reason,
+            )
+
+        return execute
+
+    @tool
     def approve_loan() -> Tool:
         async def execute(
             app_id: str,
@@ -127,6 +151,7 @@ def make_tools(branch: Branch, window: WindowTracker) -> list[Tool]:
         "list_emails": list_emails,
         "read_email": read_email,
         "review_application": review_application,
+        "edit_application": edit_application,
         "approve_loan": approve_loan,
         "reject_loan": reject_loan,
         "wait_for_next_day": wait_for_next_day,
