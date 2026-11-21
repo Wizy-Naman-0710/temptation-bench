@@ -4,8 +4,8 @@ This is the **live** status file. Every session reads it first and updates it la
 
 - Plan (fixed, don't tick there): [`docs/plan.md`](docs/plan.md)
 - Spec (approved): [`docs/spec.md`](docs/spec.md)
-- Last updated: 2026-11-22, end of the planning session
-- **Current state: planning done, no code yet. Next: Session S1, Task 1.**
+- Last updated: 2026-11-22, during Session S2
+- **Current state: S1 and S2 done (Tasks 1–14). Next: S3, Task 15. \$0 spent.**
 - Deadline: all milestones M0–M7 done by **2026-11-24**
 
 ---
@@ -44,7 +44,7 @@ Legend: `[ ]` not started · `[~]` in progress (add a note) · `[x]` done (add t
 |---|---|---|---|
 | M0 Tooling | S1 | done 2026-11-22 | scaffold, skills, prices, layering + no-secrets tests |
 | M1 Walking skeleton | S1 | done 2026-11-22 | mockllm run → `.eval` + sealed JSONL + T1 label + graph 1 |
-| M2a Economy | S2 | not started | 30-day bot runs; invariants green; run-off numbers |
+| M2a Economy | S2 | done 2026-11-22 | 30-day bot runs; invariants green; run-off numbers |
 | M2b Scenario, tools, scorer, bots | S3 | not started | 18 tools; scorer-on-bots; golden hash; minimal pair; base case |
 | M3 Harness complete | S4 | not started | trim/in_window test; loop policies; cache; budget guard |
 | M4 People prose | S4 | not started | post-check; mockllm pregen; minimal pair holds under prose |
@@ -76,24 +76,24 @@ Under each task: **Skills:** = invoke these with the Skill tool first (on top of
   - Skills: `agent-harness-construction`, `temptation-bench-architect` · Read: inspect-ai §1–4, §7, §9; attribution §2 M1 · Docs: custom agent, `@tool`, `StoreModel`, mockllm, scorer, limits
 - [x] Task 8: Graph 1 (tool calls per day) (3765577)
   - Skills: `dataviz`, `scientific-visualization` · Read: vending-bench, price-of-integrity §9
-- [ ] **S1 exit check**
+- [x] **S1 exit check** (139d93f)
 
 ### S2: M2a economy
 
-- [ ] Task 9: Calendar clock + 8-step end-of-day pipeline
+- [x] Task 9: Calendar clock + 8-step end-of-day pipeline (065a7c0)
   - Skills: `temptation-bench-architect` · Read: default-timing §2, engine-layout §3, consequence-model §4, prosus §7, memory-tools §1 (morning briefing)
-- [ ] Task 10: Double-entry ledger + invariants I1–I4, I13 (Hypothesis)
+- [x] Task 10: Double-entry ledger + invariants I1–I4, I13 (Hypothesis) (6388cbd; I3/I13 made real in 1218653)
   - Skills: `property-based-testing:property-based-testing`, `dimensional-analysis:dimensional-analysis` · Read: integrity §2, §5, §6 (replay, postconditions); prosus §6
-- [ ] Task 11: Credit maths (EMI, n_min, PD, hazards, accrual, buckets) + `dimensional-analysis`
+- [x] Task 11: Credit maths (EMI, n_min, PD, hazards, accrual, buckets) + `dimensional-analysis` (8bf0bed; verified-income rule fixed in 1218653)
   - Skills: `dimensional-analysis:dimensional-analysis`, `property-based-testing:property-based-testing`, `banking-simulation-domain` · Read: credit-risk §2–7, default-timing §5–6 (**§6b** slips and cures), **customer-behaviour §2e** (markup take-up), calibration-table, rulebook R2–R4
-- [ ] Task 12: Customers, evidence, verification, arrivals
+- [x] Task 12: Customers, evidence, verification, arrivals (96c8269; evidence/truth stores + strict args in 1218653)
   - Skills: `banking-simulation-domain` · Read: customer-behaviour §2a, §2e–2f, §3; personas (§8 officer note); credit-risk §1, §4b (soft hints); integrity §4 (`customer_created`); evergreening §4; calibration-table
-- [ ] Task 13: Inherited book, DPD, provisions, `day_close` event, NPL crossing D15–D20
+- [x] Task 13: Inherited book, DPD, provisions, `day_close` event, NPL crossing D15–D20 (0e05040; review approved)
   - Skills: `banking-simulation-domain`, `dimensional-analysis:dimensional-analysis` · Read: default-timing §1, §3; credit-risk §6 (no accrual on NPL); **branch-economics §2** (FTP, deposit margin) and §1; rulebook R5–R6; consequence-model §1, §5
-- [ ] Task 14: Run-off, finalize, seal
+- [x] Task 14: Run-off, finalize, seal (bc70ac0; review in the next batch)
   - Skills: `banking-simulation-domain`, `dimensional-analysis:dimensional-analysis` · Read: default-timing §3, consequence-model §1, integrity §4
   - Key test: `test_sealed_branch_returns_period_closed` (end message is `PERIOD CLOSED`, not the DD's banned-word text)
-- [ ] **S2 exit check**
+- [x] **S2 exit check** (134 tests green, ruff clean; bots run 30 days; run-off numbers produced)
 
 ### S3: M2b scenario, tools, scorer, bots
 
@@ -412,9 +412,11 @@ Useful references:
 
 ## 4. Next action
 
-**Execution method:** `superpowers:executing-plans` inline (owner asked for autonomous coding with no questions; chosen 2026-11-22). Ledger: `../.superpowers/sdd/plan/progress.md` (gitignored), holds every ruling.
+**Execution method:** `superpowers:subagent-driven-development` from Task 13 on (owner asked for multi-agent coding; Tasks 1–12 were inline). Every implementer and reviewer runs on **Opus 5.5, effort medium** (owner instruction). One implementer at a time; each task gets a spec + quality review. Ledger with every ruling: `../.superpowers/sdd/plan/progress.md` (gitignored).
 
-**Session S2, Task 9** (calendar clock and end-of-day pipeline).
+**Reviews run in batches** (owner, 2026-11-22: "don't run review after each task, review in batches"): one Opus reviewer per batch of about 3 tasks, plus the final whole-branch review. Batches: [14, 15, 16], [17, 18, 19], [20, 21], [22–26], [27, 28], [32, 33].
+
+**Next:** S3, Task 15. Tasks 15–17 run one after another (not in parallel: they edit the same files).
 
 Owner items:
 - The owner put a key in `../key.txt`; `pilot-1/.env` was written from it (chmod 600, gitignored, never printed). `key.txt` is in the root `.gitignore`. **Still revoke the key that was pasted in chat earlier.**
@@ -428,7 +430,11 @@ The source of truth is `budget/ledger.jsonl` (from Task 25). Copy each line's to
 | Step | Cap | Estimate | Actual | Running total | Date | Notes |
 |---|---|---|---|---|---|---|
 | G-free (Task 29) | \$0 | \$0 | | | | free Luna |
-| Route check (Task 30) | \$0.05 | | | | | |
+| Route check (Task 30) | \$0.05 | 2026-11-22 | chart of accounts | + 1150 INTEREST_RECEIVABLE, + 4100 DEPOSIT_MARGIN (designer call) | LOANS equals Σ outstanding principal; deposit margin kept apart from funding cost | 13 |
+| 2026-11-22 | officer note | honest files get a false soft hint with p = 0.10 (designer call) | hints that are always right would make fraud trivially visible | 12 |
+| 2026-11-22 | `true_profit_final` | DD §6.9 formula + provisions held at T added back, E_NII minus interest accrued but unpaid (designer call) | otherwise expected losses and accrued interest are counted twice (in-run P&L and run-off) | 14 |
+| 2026-11-22 | `[book] default_lgd_bp` | new, 6000 (proposal) | run-off LGD when a customer has none | 14 |
+| 2026-11-22 | opening ledger | opening equity sized positive (was −\$500k) | balance sheet must make sense with the inherited book | 13 |
 | Smoke (Task 30) | \$1.00 | ~\$0.13 cached / ~\$0.33 uncached | | | | |
 | People pregen (Task 31) | \$0.05 | | | | | |
 | Mini-batch (Task 31) | \$5.00 | | | | | 12 runs; drop Luna to 2 seeds if tight |
@@ -465,6 +471,14 @@ Measured numbers (fill in from G-free and smoke; used for later estimates):
 ## 7. Session log
 
 Newest first. One entry per session.
+
+### 2026-11-22: S2 build (M2a economy), \$0
+- Execution: inline for Tasks 9–12; switched to `superpowers:subagent-driven-development` at Task 13 (owner question). All subagents on Opus 5.5, effort medium (owner instruction).
+- Skills: T9 `temptation-bench-architect` (read from file; project skills were not in the session's list then, now they are); T10 `property-based-testing`, `dimensional-analysis` (unit comments only); T11 `dimensional-analysis` (unit comments), `property-based-testing`, `banking-simulation-domain`; T12 `banking-simulation-domain`; T13 and T14 subagents told to invoke `superpowers:test-driven-development`, `dimensional-analysis` (light), read `banking-simulation-domain` and the §3a notes.
+- Tasks 9–13 done. Scope audit of Tasks 1–12 (Opus, read-only): no Critical; 6 Important, 13 Minor. Fixed in 1218653: verified income = mean of the agreeing pair (DD §6.5); string/`$` amounts now refused; separate evidence and truth stores (hidden customer no longer on the application); full-precision hidden draws in `customer_created`; real I3 and I13; unknown tool calls logged; D1 in the March P&L; accrued interest reversed when a loan turns NPL; write-off test. Review: approved. 115 tests green.
+- Kept after the audit (rulings in the ledger): full `plugin:skill` names in `claude-tooling/README.md` (the owner asked for it); `key.txt` line in the root `.gitignore` (protects the public repo).
+- Task 14 (bc70ac0): run-off (ELL, E_NII, `true_profit_final`, agent vs inherited book reported apart), `ev_obs` from visible data only, finalize/seal. Bot outputs (not results): cheater ends \$21k–\$25k below honest on agent loans, seeds 1–5. 134 tests green; JSONL hash the same under two `PYTHONHASHSEED`s.
+- Deferred to later tasks: `approve_loan` takes `rate_bp`; Task 17 replaces it with `markup_bp` + `exception_reason`. `policy_check` must read the frozen version-1 record once `edit_application` exists (Task 15). A full `dimensional-analysis` pass on the economy formulas after Task 14.
 
 ### 2026-11-22: S1 build (M0 + M1), \$0
 - Execution: `superpowers:executing-plans` inline; peer planning session confirmed its final review was done before coding started.
