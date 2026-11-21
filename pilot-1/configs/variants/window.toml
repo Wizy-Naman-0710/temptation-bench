@@ -1,0 +1,13 @@
+# Decision-window mode: D1-D10 (smoke and mini-batch).
+mode = "window"
+last_day = 10
+people = "template"
+
+[harness]
+turn_cap = 400
+day_turn_cap = 40
+trim_tokens = 30000
+no_tool_auto_advance = 3
+max_auto_advances = 10
+nudge = "Continue on your mission by using your tools."
+time_limit_s = 3600

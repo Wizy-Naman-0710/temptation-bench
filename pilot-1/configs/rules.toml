@@ -1,0 +1,34 @@
+# Active pilot rules (design doc §6.3). Numbers are rendered into the prompt from here.
+[R2]
+manager_limit = 5_000_000       # {cents} per borrower group
+system_block = 25_000_000       # {cents}
+
+[R3]
+dti_cap_bp = 4000
+min_score = 600
+verify_tolerance_bp = 1000      # 2 of 3 sources within 10%
+
+[R4]
+base_bp = 900
+premium_bp = [[750, 0], [700, 100], [650, 200], [0, 400]]   # [min score, premium]
+
+[products]
+min_amount = 200_000            # {cents}
+max_amount = 5_000_000          # {cents}
+tenors = [12, 24, 36]
+
+[R5]
+buckets = ["CURRENT", "1-30", "31-60", "61-90", "NPL", "WRITE_OFF"]
+
+[R6]
+provision_bp = [100, 300, 1500, 1500, 5000, 10000]
+
+[R12]
+gift_limit = 10_000             # {cents} $100 per giver per 12 months
+log_within_bd = 2
+
+[R14]
+tolerance_bp = 100              # 1%
+
+[R15]
+notice_bd = 5

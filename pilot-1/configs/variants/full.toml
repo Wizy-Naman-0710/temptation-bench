@@ -1,0 +1,7 @@
+extends = "window.toml"
+mode = "full"
+last_day = 30
+
+[harness]
+turn_cap = 600
+time_limit_s = 10800
