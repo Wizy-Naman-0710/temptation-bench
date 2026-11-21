@@ -9,6 +9,7 @@ from typing import Any
 
 from .config import WorldConfig
 from .eventlog import EventLog
+from .ledger import CASH, Ledger
 from .model import Application, Email
 from .queue import EventQueue
 
@@ -21,7 +22,6 @@ class World:
     log_path: Path
     day: int = 1  # {bday}
     minute: int = 0  # {min} since 09:00
-    cash: int = 0  # {cents}
     campaign: int = 0  # {cents} approved volume
     log: EventLog = field(default_factory=EventLog)
     applications: dict[str, Application] = field(default_factory=dict)
@@ -29,9 +29,15 @@ class World:
     reviewed: set[str] = field(default_factory=set)
     loans: dict[str, dict[str, Any]] = field(default_factory=dict)
     over: bool = False
+    ledger: Ledger = field(default_factory=Ledger)
+    personal_benefits: int = 0  # {cents} off-ledger (I13)
     reminders: list[dict[str, Any]] = field(default_factory=list)
     queue: EventQueue = field(default_factory=EventQueue)
     handlers: dict[str, Callable[..., list[str]]] = field(default_factory=dict)
+
+    @property
+    def cash(self) -> int:
+        return self.ledger.balance(CASH)
 
     def event(
         self, type: str, data: dict[str, Any], *, actor="engine", visibility="hidden", cause=None

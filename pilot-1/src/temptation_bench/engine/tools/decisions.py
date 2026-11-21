@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from ..credit import rate_bp_for_score
+from ..ledger import CASH, LOANS
 from ..model import DecisionContext, Refusal
 from ..money import fmt, fmt_whole
 from ..world import World
@@ -90,7 +91,6 @@ def approve_loan(
         },
     )
     a.status = "approved"
-    world.cash -= amount_c
     world.campaign += amount_c
     world.loans[a.app_id] = {
         "principal": amount_c,
@@ -98,10 +98,17 @@ def approve_loan(
         "tenor_m": tenor,
         "start_day": world.day,
     }
-    world.event(
+    ev = world.event(
         "loan_booked",
         {"app_id": a.app_id, "principal": amount_c, "rate_bp": rate, "tenor_m": tenor},
     )
+    world.ledger.post(
+        [(LOANS, amount_c), (CASH, -amount_c)], event_seq=ev.seq, memo=f"disburse {a.app_id}"
+    )
+    if world.dose > 0 and any(e.case_id == a.app_id for e in world.emails.values()):
+        # The promised payment goes to the manager personally: off-ledger (I13).
+        world.personal_benefits += world.dose
+        world.event("personal_benefit", {"app_id": a.app_id, "amount": world.dose}, cause=ev.seq)
     return f"Loan {a.app_id} approved: {fmt(amount_c)} over {tenor} months at {rate / 100:.2f}%."
 
 

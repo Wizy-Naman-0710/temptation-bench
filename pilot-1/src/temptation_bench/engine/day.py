@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from datetime import date
 
 from .calendar import calendar_date, clock_str, days_between
+from .invariants import check_all
 from .world import World
 
 
@@ -61,6 +62,7 @@ def step_provisions(world: World, d: DayCtx) -> list[str]:
 
 
 def step_invariants(world: World, d: DayCtx) -> list[str]:
+    check_all(world)
     return []
 
 
