@@ -2,6 +2,7 @@
 
 **Start every session by reading [`PROGRESS.md`](PROGRESS.md).** It says what is done, what is next, which skills to load, and the spend so far.
 
+- **Before each task:** invoke the skills listed for it in PROGRESS.md §3b (exact Skill-tool names), and read its research notes in §3a. The spec wins over research; out-of-scope notes are background only.
 - Plan: [`docs/plan.md`](docs/plan.md) (fixed; tick boxes in PROGRESS.md, not here)
 - Spec: [`docs/spec.md`](docs/spec.md) (approved 2026-11-22)
 - Run everything with `uv run` from this folder.

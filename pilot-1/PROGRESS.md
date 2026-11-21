@@ -143,6 +143,53 @@ Check `../claude-tooling/README.md` for what each skill is for. **Superpowers is
 | S5 | `superpowers:verification-before-completion` **before every paid step** | `dataviz`, `scientific-visualization`, `statistical-analysis` |
 | S6 | `superpowers:requesting-code-review`, `superpowers:finishing-a-development-branch` | `banking-simulation-domain` |
 
+### 3b. Skill and tooling map per task (invoke these before the task)
+
+The names below are the exact strings for the **Skill tool**. They match `../claude-tooling/README.md` ("Which tool for which job"). If a skill is missing, check that README's install table and tell the owner. Don't install new packs without asking.
+
+**Always, in every task:**
+- `superpowers:using-superpowers` (session start)
+- `superpowers:subagent-driven-development` or `superpowers:executing-plans` (whichever is recorded in §4)
+- `superpowers:test-driven-development`
+- `superpowers:verification-before-completion` (before ticking a box)
+- `superpowers:systematic-debugging` (any red test or surprise)
+- After Task 2: the project skills `temptation-bench-architect`, `banking-simulation-domain` and `benchmark-methodology`, as listed in this table
+
+**Library docs:**
+- Inspect AI: Context7 (`resolve-library-id` → `query-docs`, library `/websites/inspect_aisi_uk`), or fetch a page listed in `../claude-tooling/inspect-ai-context.md`.
+- Other libraries (pydantic, Hypothesis, pandas, matplotlib): Context7 via the `documentation-lookup` skill.
+
+| Task(s) | Invoke |
+|---|---|
+| 1 scaffold | `modern-python:modern-python` |
+| 2 project skills | `anthropic-skills:skill-creator`, `superpowers:writing-skills` |
+| 3 prices | Context7 (Inspect `set_model_info`, `ModelCost`) |
+| 4–5 engine primitives, `Branch` facade | `codebase-design` (deep-module facade), `temptation-bench-architect` |
+| 6 skeleton scoring, bots | `benchmark-methodology` |
+| 7 Inspect skeleton | Context7 (Inspect agent, `@tool`, `StoreModel`, mockllm), `agent-harness-construction` (tool docstrings and outputs), `temptation-bench-architect` |
+| 8 graph 1 | `dataviz`, `scientific-visualization` |
+| 9 clock | `temptation-bench-architect` |
+| 10 ledger | `property-based-testing:property-based-testing`, `dimensional-analysis:dimensional-analysis` |
+| 11 credit maths | `dimensional-analysis:dimensional-analysis`, `property-based-testing:property-based-testing`, `banking-simulation-domain` |
+| 12–14 customers, book, run-off | `banking-simulation-domain`, `dimensional-analysis:dimensional-analysis` (13, 14) |
+| 15 records | `temptation-bench-architect` |
+| 16 scenario | `banking-simulation-domain`, `benchmark-methodology`, `experimental-design` (minimal pairs) |
+| 17 tools | `agent-harness-construction`, `banking-simulation-domain` |
+| 18 invariants fuzzing | `property-based-testing:property-based-testing` |
+| 19 full scorer | `benchmark-methodology`; afterwards `mutation-testing:mutation-testing` on `engine/scoring.py` (do the tests catch bugs?) |
+| 20 bots, sensitivity | `banking-simulation-domain`, `benchmark-methodology` |
+| 21 prompt, calibration, golden hash | `benchmark-methodology` (no-leak wording), `superpowers:dispatching-parallel-agents` (if running 16/17 in parallel) |
+| 22–24 harness | Context7 (`CompactionTrim`, `CachePolicy`, limits, model roles), `agent-harness-construction` |
+| 25 budget guard | `cost-aware-llm-pipeline` |
+| 26 people prose | Context7 (model roles), `benchmark-methodology` (no-leak check) |
+| 27 loaders, stats | `statistical-analysis`, `exploratory-data-analysis`; `statistical-power` (for the "n = 3 is exploratory" caveat) |
+| 28 graphs 2–10, report | `dataviz`, `scientific-visualization` |
+| 29–31, 34 paid runs | `superpowers:verification-before-completion` **before each paid command**, `cost-aware-llm-pipeline` |
+| 32–33 audit, modes | `banking-simulation-domain`, `property-based-testing:property-based-testing` |
+| 34 wrap-up | `superpowers:requesting-code-review`, `superpowers:receiving-code-review`, `superpowers:finishing-a-development-branch` |
+
+Not for pilot-1: `literature-review` (it has paid scripts; ask the owner first), and `hypothesis-generation` (pre-registration comes later).
+
 ### 3a. Research reading map (read before each task)
 
 The research in `../research/` is the *why* behind every number and rule. Read the listed notes (and sections) before starting a task.
