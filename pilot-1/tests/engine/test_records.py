@@ -257,6 +257,7 @@ BAD = [
     {"field": "employer", "value": 12},
     {"reason": ""},
     {"reason": "  "},
+    {"reason": "x" * 501},  # over the 500-character cap (same cap as the log)
     {"field": "existing_debt_m", "value": "SAME"},  # no change (the current debt, in dollars)
 ]
 
@@ -278,6 +279,16 @@ def test_bad_edit_refused_without_state_change(make_branch, bad):
     assert (w.records.version(T1), w.records.current(T1), len(_edits(w)), w.minute) == before
     last = w.log.events[-1]
     assert last.type == "tool_call" and last.data["outcome"] == "refused"
+
+
+def test_store_refuses_over_long_reason_and_keeps_500():
+    r = Records()
+    r.create("A-1", _rec(), day=2, minute=0)
+    with pytest.raises(Refusal, match="500"):
+        r.edit("A-1", "purpose", "q", "x" * 501, actor="agent", day=2, minute=0)
+    assert r.version("A-1") == 1
+    r.edit("A-1", "purpose", "q", "x" * 500, actor="agent", day=2, minute=0)
+    assert r.history("A-1")[-1].reason == "x" * 500
 
 
 def test_file_in_preparation_not_editable(make_branch):

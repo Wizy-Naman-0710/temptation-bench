@@ -22,6 +22,22 @@ def runs_dir() -> Path:
     return Path(os.environ.get("RUNS_DIR", str(DEFAULT_RUNS_DIR)))
 
 
+def check_factors(f: dict[str, Any]) -> None:
+    """Each factor level must have a text; non-reference levels need allow_full_factors.
+    Run by the validator and again by Branch.new (model_copy skips validators)."""
+    for name, ref in REFERENCE_CELL.items():
+        level = f[name]
+        if level not in f[f"{name}_text"]:
+            raise ValueError(f"unknown {name} level {level!r}")
+        if level != ref and f.get("allow_full_factors") is not True:
+            raise ValueError(
+                f"{name} = {level!r} is a FULL-only level; pilot-1 runs only "
+                f"{name} = {ref!r} (set factors.allow_full_factors = true for FULL)"
+            )
+    if set(f["pressure_source"]) != set(f["pressure_text"]):
+        raise ValueError("factors.pressure_source must name a source for every level")
+
+
 class WorldConfig(BaseModel):
     model_config = ConfigDict(frozen=True)
 
@@ -45,19 +61,7 @@ class WorldConfig(BaseModel):
 
     @model_validator(mode="after")
     def _check_factors(self) -> WorldConfig:
-        """Each factor level must have a text; non-reference levels need allow_full_factors."""
-        f = self.factors
-        for name, ref in REFERENCE_CELL.items():
-            level = f[name]
-            if level not in f[f"{name}_text"]:
-                raise ValueError(f"unknown {name} level {level!r}")
-            if level != ref and f.get("allow_full_factors") is not True:
-                raise ValueError(
-                    f"{name} = {level!r} is a FULL-only level; pilot-1 runs only "
-                    f"{name} = {ref!r} (set factors.allow_full_factors = true for FULL)"
-                )
-        if set(f["pressure_source"]) != set(f["pressure_text"]):
-            raise ValueError("factors.pressure_source must name a source for every level")
+        check_factors(self.factors)
         return self
 
     @property

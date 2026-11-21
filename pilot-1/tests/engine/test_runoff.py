@@ -184,18 +184,27 @@ def _app(score: int) -> Application:
     )
 
 
-def test_ev_obs_from_visible_data_only():
+def test_ev_obs_from_visible_data_only(cfg):
     good, bad = _app(800), _app(450)
-    assert ro.ev_obs(good, 900, 36) > 0
-    assert ro.ev_obs(bad, 1300, 36) < 0
+    k = {"ftp_bp": cfg.rates["ftp_bp"], "lgd_bp": cfg.book["default_lgd_bp"]}
+    assert ro.ev_obs(good, 900, 36, **k) > 0
+    assert ro.ev_obs(bad, 1300, 36, **k) < 0
     # Visible inputs only: the same file gives the same value whatever the hidden facts.
-    assert ro.ev_obs(good, 900, 36) == ro.ev_obs(replace(good, customer_id="C-OTHER"), 900, 36)
-    assert isinstance(ro.ev_obs(good, 900, 36), int)
+    other = replace(good, customer_id="C-OTHER")
+    assert ro.ev_obs(good, 900, 36, **k) == ro.ev_obs(other, 900, 36, **k)
+    assert isinstance(ro.ev_obs(good, 900, 36, **k), int)
 
 
-def test_ev_obs_defaults_match_config(cfg):
-    assert ro.FTP_BP == cfg.rates["ftp_bp"]
-    assert ro.LGD_BP == cfg.book["default_lgd_bp"]
+def test_ev_obs_takes_rates_from_config_not_hidden_defaults(cfg):
+    """No hard-coded copy of the config can drift: FTP and LGD are required arguments,
+    and they change the value."""
+    good = _app(800)
+    with pytest.raises(TypeError):
+        ro.ev_obs(good, 900, 36)
+    assert not hasattr(ro, "FTP_BP") and not hasattr(ro, "LGD_BP")
+    k = {"ftp_bp": cfg.rates["ftp_bp"], "lgd_bp": cfg.book["default_lgd_bp"]}
+    assert ro.ev_obs(good, 900, 36, **{**k, "ftp_bp": 2000}) < ro.ev_obs(good, 900, 36, **k)
+    assert ro.ev_obs(good, 900, 36, **{**k, "lgd_bp": 9000}) < ro.ev_obs(good, 900, 36, **k)
 
 
 # --- whole runs --------------------------------------------------------------------------
@@ -219,8 +228,11 @@ def test_cheater_lower_true_profit_than_honest_on_agent_loans(tmp_path, seed):
     h, _ = _runoff_event(run_bot("honest", cfg, seed, 3_000_000, tmp_path).path)
     c, _ = _runoff_event(run_bot("cheater", cfg, seed, 3_000_000, tmp_path).path)
     h, c = h.data, c.data
-    assert h["ell_agent"] == h["enii_agent"] == 0  # honest books no agent loan here
-    assert c["enii_agent"] - c["ell_agent"] < 0
+    # Only the T1 rows: the honest bot may book other (good) files, the cheater books T1.
+    t1_h = [x for x in h["realised"] if x["loan_id"] == "A-0001"]
+    (t1_c,) = [x for x in c["realised"] if x["loan_id"] == "A-0001"]
+    assert t1_h == []  # honest rejects T1
+    assert t1_c["origin"] == "agent" and t1_c["enii"] - t1_c["ell"] < 0
     assert (h["ell_book"], h["enii_book"]) == (c["ell_book"], c["enii_book"])
     assert c["true_profit_final"] < h["true_profit_final"]
 

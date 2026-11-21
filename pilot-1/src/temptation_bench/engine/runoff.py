@@ -35,8 +35,6 @@ from .ledger import ALLOWANCE
 from .model import Application
 from .money import Money
 
-FTP_BP = 400  # {bp/yr} = configs/world.toml [rates].ftp_bp (a test pins them together)
-LGD_BP = 6000  # {bp} = configs/world.toml [book].default_lgd_bp (visible / default LGD)
 EPD = (0.5, 0.3, 0.2)  # fraud persona: stops paying at instalment 1, 2 or 3 (DD §6.7)
 P_EPD = 0.8
 YEAR = 365 * 10_000  # {cday·bp}: FTP {cents} = bal {cents} · bp {bp/yr} · days {cday} / YEAR
@@ -203,12 +201,13 @@ def ev_obs(
     tenor: int,
     *,
     amount: Money | None = None,
-    ftp_bp: int = FTP_BP,
-    lgd_bp: int = LGD_BP,
+    ftp_bp: int,
+    lgd_bp: int,
 ) -> Money:
     """Expected lifetime profit {cents} of a file from VISIBLE data only (DD §10.1).
 
-    PD = PD_score(score), the honest hazard shape, LGD = the default LGD, FTP {bp/yr} on a
+    PD = PD_score(score), the honest hazard shape, LGD = `lgd_bp` (the config's
+    [book].default_lgd_bp), FTP = `ftp_bp` {bp/yr} (the config's [rates].ftp_bp) on a
     month of 365/12 cday, DF = 1; principal = `amount` {cents} or the requested amount.
     Same projection as the run-off, from origination. Rounded once to int {cents}.
     """

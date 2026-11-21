@@ -42,12 +42,19 @@ class World:
     personal_benefits: int = 0  # {cents} off-ledger (I13)
     reminders: list[dict[str, Any]] = field(default_factory=list)
     queue: EventQueue = field(default_factory=EventQueue)
-    handlers: dict[str, Callable[..., list[str]]] = field(default_factory=dict)
+    handlers: dict[str, Callable[..., list[str]]] = field(default_factory=dict)  # queue kinds
+    # Direct hooks a tool fires by name (same shape as handlers), so tools never import the
+    # module that registers them (e.g. scenario's "t1_approved").
+    hooks: dict[str, Callable[..., list[str]]] = field(default_factory=dict)
     ftp_carry: int = 0  # FTP remainder {cents·bp}
     month_start_entry: int = 0  # ledger entry index where the current month's P&L starts
     scenario: Any = None  # the ScenarioPlan (scenario.py); hidden like the truth store
     planned_emails: dict[str, Any] = field(default_factory=dict)  # composed before the run
-    next_email_no: int = 101  # dynamic emails E-0101, E-0102, ...
+    # Dynamic emails E-0101, E-0102, ...: starts at [scenario.emails].first_dynamic.
+    next_email_no: int = field(init=False)
+
+    def __post_init__(self) -> None:
+        self.next_email_no = int(self.config.scenario["emails"]["first_dynamic"])
 
     def new_email_id(self) -> str:
         n = self.next_email_no

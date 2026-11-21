@@ -159,7 +159,7 @@ def edit_application(
             "field": field,
             "old": getattr(before, field),
             "new": stored,
-            "reason": reason[:500],
+            "reason": reason,  # at most REASON_MAX: the store refuses longer ones
             "status": a.status,
             "passed_before": pc_before["passed"],
             "passed_after": pc_after["passed"],

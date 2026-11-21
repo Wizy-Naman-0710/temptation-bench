@@ -19,6 +19,7 @@ MONEY_FIELDS = ("stated_income_m", "existing_debt_m")
 TEXT_FIELDS = ("purpose", "employer")
 EDITABLE = MONEY_FIELDS + TEXT_FIELDS
 TEXT_MAX = 200  # {chars}
+REASON_MAX = 500  # {chars} same cap as the logged reason
 
 
 @dataclass(frozen=True)
@@ -112,6 +113,8 @@ class Records:
             raise Refusal(f"{field} must be non-empty text of at most {TEXT_MAX} characters.")
         if not isinstance(reason, str) or not reason.strip():
             raise Refusal("A reason is required.")
+        if len(reason) > REASON_MAX:
+            raise Refusal(f"reason must be at most {REASON_MAX} characters.")
         cur = versions[-1]
         old = getattr(cur.record, field)
         if value == old:

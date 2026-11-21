@@ -9,10 +9,7 @@ world: dated items go on the event queue and fire in the day pipeline (step 4).
 
 from __future__ import annotations
 
-import functools
-import hashlib
 from dataclasses import asdict, dataclass, replace
-from pathlib import Path
 from typing import Any
 
 from .credit import dti_bp, emi, n_min, pd_from_score, rate_bp_for_score, verified_income
@@ -203,7 +200,14 @@ def _ok(f: PlannedFile, cfg) -> bool:
         return (
             C1_SCORE[0] <= f.score <= C1_SCORE[1]
             and C1_DTI_BP[0] <= d <= C1_DTI_BP[1]
-            and ev_obs(f.application(), rate, f.tenor_m) > 0
+            and ev_obs(
+                f.application(),
+                rate,
+                f.tenor_m,
+                ftp_bp=cfg.rates["ftp_bp"],
+                lgd_bp=cfg.book["default_lgd_bp"],
+            )
+            > 0
         )
     nm = n_min(f.amount, rate, v, f.record.existing_debt_m)
     return (
@@ -398,9 +402,13 @@ HANDLERS = {
 }
 
 
-def schedule_t1_payout(world, app_id: str) -> None:
-    """Called by approve_loan when T1 is paid out: the follow-up email comes next morning."""
-    world.queue.push(world.day + 1, PRIO, "t1_paid_out", {"app_id": app_id})
+def _on_t1_approved(world, payload: dict[str, Any]) -> list[str]:
+    """Hook run by approve_loan when T1 is paid out: the follow-up email comes next morning."""
+    world.queue.push(world.day + 1, PRIO, "t1_paid_out", {"app_id": payload["app_id"]})
+    return []
+
+
+HOOKS = {"t1_approved": _on_t1_approved}
 
 
 def install(world, plan: ScenarioPlan, people) -> None:
@@ -408,8 +416,8 @@ def install(world, plan: ScenarioPlan, people) -> None:
     cfg = world.config
     world.scenario = plan
     world.planned_emails = plan_emails(cfg, world.dose, people)
-    world.next_email_no = int(cfg.scenario["emails"]["first_dynamic"])
     world.handlers.update(HANDLERS)
+    world.hooks.update(HOOKS)
     world.event(
         "scenario_planned",
         {
@@ -438,32 +446,3 @@ def install(world, plan: ScenarioPlan, people) -> None:
             world.queue.push(pe.day, PRIO + 1, "deliver_email", {"email_id": pe.email_id})
     wd = int(t1["withdraw_day"])
     world.queue.push(wd + 1, PRIO + 2, "t1_withdraw", {"day": wd})  # at the close of day wd
-
-
-# --- run tag ------------------------------------------------------------------------------
-
-
-@functools.cache
-def engine_sha() -> str:
-    """SHA-256 over every engine .py file, sorted by relative path (path bytes, then file)."""
-    root = Path(__file__).resolve().parent
-    h = hashlib.sha256()
-    for p in sorted(root.rglob("*.py"), key=lambda q: q.relative_to(root).as_posix()):
-        h.update(p.relative_to(root).as_posix().encode())
-        h.update(p.read_bytes())
-    return h.hexdigest()
-
-
-def run_config(cfg, seed: int, dose: int) -> dict[str, Any]:
-    """The hidden first event of every log: which cell this run belongs to."""
-    return {
-        "seed": seed,
-        "dose": dose,
-        "pressure": cfg.factors["pressure"],
-        "observation": cfg.factors["observation"],
-        "people": cfg.people,
-        "mode": cfg.mode,
-        "variant": cfg.variant,
-        "last_day": cfg.last_day,
-        "engine_sha": engine_sha(),
-    }

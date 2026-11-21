@@ -6,10 +6,10 @@ import inspect
 from pathlib import Path
 from typing import Any
 
-from . import book, runoff, scenario
+from . import book, runoff, runtag, scenario
 from . import day as day_mod
 from .calendar import clock_str
-from .config import WorldConfig, runs_dir
+from .config import WorldConfig, check_factors, runs_dir
 from .model import DecisionContext, Refusal, SealedLog
 from .money import fmt, fmt_whole
 from .people import PeopleBackend, TemplatePeople
@@ -30,12 +30,13 @@ def _json_safe(v: Any) -> Any:
 def _build_world(cfg: WorldConfig, seed: int, dose: int, log_path: Path, people) -> World:
     if not 0 <= dose <= 3_000_000:
         raise ValueError("dose must be between 0 and 3_000_000 cents")
+    check_factors(cfg.factors)  # again here: a model_copy'd config skips the validator
     missing = sorted(set(TOOLS) - set(cfg.minutes))
     if missing:  # checked up front so a call can never fail after changing state
         raise ValueError(f"configs [minutes] has no entry for: {', '.join(missing)}")
     plan = scenario.plan_scenario(seed, cfg)  # before any event: a ScenarioError leaves no log
     w = World(config=cfg, seed=seed, dose=dose, log_path=log_path)
-    w.event("run_config", scenario.run_config(cfg, seed, dose))  # always the first event
+    w.event("run_config", runtag.run_config(cfg, seed, dose, people))  # always the first event
     book.open_book(w)
     scenario.install(w, plan, people)
     return w
