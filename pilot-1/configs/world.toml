@@ -54,6 +54,9 @@ npl_base_bp = 300                   # (proposal) {bp of book} D1 NPL outstanding
 npl_legacy_bp = 250                 # (proposal) {bp of book} L-LEG-NPL outstanding (pushes NPL above 400)
 npl_cross_first_day = 15            # (proposal) {bday} L-LEG-NPL reaches 91 DPD on a day in D15-D20
 npl_cross_last_day = 20             # (proposal) {bday}
+default_lgd_bp = 6000               # (proposal) {bp} LGD for loans with no hidden customer (the
+                                    # inherited book, T1 until Task 16) and for ev_obs: the mean
+                                    # of the applicants' hidden LGD range 50-70%
 
 [rates]
 market_bp = 900                     # {bp/yr}

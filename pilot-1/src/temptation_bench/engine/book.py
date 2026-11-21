@@ -29,6 +29,7 @@ from .credit import (
     schedule_rows,
     slip_cures,
     slip_month,
+    verified_income,
 )
 from .ledger import (
     ALLOWANCE,
@@ -82,6 +83,11 @@ class Loan:
     slips: list[tuple[int, bool]] = field(default_factory=list)  # (instalment, cured ≤ 30 cday)
     accrued: Money = 0  # {cents} interest accrued in the run (opening accrual excluded)
     receivable: Money = 0  # {cents} accrued, not yet settled by an instalment
+    # Truth-store inputs for the run-off's expected values (runoff.py). pd_true None means
+    # the fate is planted (deterministic): the run-off then uses the realised τ.
+    pd_true: float | None = None  # {1} hidden 12-month PD
+    profile: Literal["honest", "highrisk"] = "honest"
+    lgd_bp: int | None = None  # {bp} hidden LGD; None = config default_lgd_bp
 
     def hidden_record(self) -> dict:
         return {
@@ -189,7 +195,19 @@ def _performing(seed: int, i: int, b: dict, d1: date) -> Loan:
     tau = None if tail is None else k_past + tail
     pays, slips = _fill_payments(seed, lid, rows, tau, False)
     return Loan(
-        lid, cid, principal, rate, n, rows, pays, "inherited", tau, start=start, slips=slips
+        lid,
+        cid,
+        principal,
+        rate,
+        n,
+        rows,
+        pays,
+        "inherited",
+        tau,
+        start=start,
+        slips=slips,
+        pd_true=pd,
+        profile="honest",
     )
 
 
@@ -315,15 +333,16 @@ def agent_loan(
         profile = "highrisk" if fraud else c.profile
         pd = c.pd_true_at(app.debt_m, rows[0].payment)
         u, fu = c.default_u, c.fraud_u
+        lgd = c.lgd_bp
     else:  # T1 has no hidden customer yet (Task 16): fraud persona per DD §6.8
         fraud = bool(app.is_t1)
         profile = "highrisk" if fraud else "honest"
-        srcs = [s for s in app.income_sources if s is not None]
-        income = sum(srcs) // max(len(srcs), 1)
+        income = verified_income(app.income_sources) or 0  # R3: the one income rule
         dti = (app.debt_m + rows[0].payment) / max(income, 1)
         pd = pd_true(pd_from_score(app.score), dti, False, False, False, fraud)
         dr = rng(seed, "default", app.customer_id)
         u, fu = dr.random(), dr.random()
+        lgd = None
     tau = default_month(monthly_hazards(pd, profile, n_months), u, fraud, fu)
     pays, slips = _fill_payments(seed, app.app_id, rows, tau, fraud)
     return Loan(
@@ -339,6 +358,9 @@ def agent_loan(
         start=start,
         fraud=fraud,
         slips=slips,
+        pd_true=pd,
+        profile=profile,
+        lgd_bp=lgd,
     )
 
 

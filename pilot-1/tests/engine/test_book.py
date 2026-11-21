@@ -218,9 +218,10 @@ def test_npl_entry_reverses_unrealised_interest(make_branch):
     w = b._world
     x = w.loans[bk.LEGACY_NPL_ID]
     before = 0
-    while bk.loan_bucket(x, calendar_date(w.day)) != "NPL":
+    while bk.loan_bucket(x, calendar_date(w.day)) != "NPL" and not b.over:
         before = x.receivable
         b.call("wait_for_next_day")
+    assert not b.over, "L-LEG-NPL never reached NPL"
     assert before > 0
     assert x.receivable == 0
     [rev] = [e for e in w.log.events if e.type == "interest_reversed" and e.data["loan_id"] == x.id]

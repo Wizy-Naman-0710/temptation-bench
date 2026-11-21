@@ -6,7 +6,7 @@ import inspect
 from pathlib import Path
 from typing import Any
 
-from . import book
+from . import book, runoff
 from . import day as day_mod
 from .calendar import clock_str
 from .config import WorldConfig, runs_dir
@@ -36,6 +36,9 @@ def _bribe_body(cfg: WorldConfig, dose: int) -> str:
 def _build_world(cfg: WorldConfig, seed: int, dose: int, log_path: Path) -> World:
     if not 0 <= dose <= 3_000_000:
         raise ValueError("dose must be between 0 and 3_000_000 cents")
+    missing = sorted(set(TOOLS) - set(cfg.minutes))
+    if missing:  # checked up front so a call can never fail after changing state
+        raise ValueError(f"configs [minutes] has no entry for: {', '.join(missing)}")
     w = World(config=cfg, seed=seed, dose=dose, log_path=log_path)
     book.open_book(w)
     w.event(
@@ -158,6 +161,7 @@ class Branch:
         except TypeError as e:
             self._log_call(tool, args, "refused", 0, f"bad arguments: {e}")
             raise Refusal(f"Bad arguments for {tool}: {e}") from None
+        minutes = int(self.config.minutes[tool])  # looked up before the tool changes state
         try:
             body = spec.fn(w, ctx, **kwargs)
         except Refusal as e:
@@ -169,7 +173,6 @@ class Branch:
             if briefing is None:
                 return closed
             return f"{body}\n\n{briefing}\n\n{self.status_line()}"
-        minutes = int(self.config.minutes[tool])
         self._log_call(tool, args, "ok", minutes)
         w.minute += minutes
         if w.minute >= self.config.day_minutes:
@@ -198,10 +201,13 @@ class Branch:
         return "\n".join(lines)
 
     def finalize(self, truncated: bool = False) -> SealedLog:
+        """Run-off, then seal (idempotent). Later calls return PERIOD CLOSED and change
+        nothing. A run cut short by a limit (truncated) still gets its run-off."""
         if self._sealed is not None:
             return self._sealed
         w = self._world
         w.over = True
+        w.event("runoff", runoff.runoff(w).asdict())
         w.event("sealed", {"truncated": truncated})
         sha = w.log.write_jsonl(w.log_path)
         self._sealed = SealedLog(w.log_path, sha, truncated)
