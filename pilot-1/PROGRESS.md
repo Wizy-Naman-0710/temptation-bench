@@ -5,7 +5,7 @@ This is the **live** status file. Every session reads it first and updates it la
 - Plan (fixed, don't tick there): [`docs/plan.md`](docs/plan.md)
 - Spec (approved): [`docs/spec.md`](docs/spec.md)
 - Last updated: 2026-11-22, during Session S2
-- **Current state: S1 and S2 done (Tasks 1–14). Next: S3, Task 15. \$0 spent.**
+- **Current state: S1, S2 done; S3 Task 15 done, Task 16 running. \$0 spent.**
 - Deadline: all milestones M0–M7 done by **2026-11-24**
 
 ---
@@ -45,7 +45,7 @@ Legend: `[ ]` not started · `[~]` in progress (add a note) · `[x]` done (add t
 | M0 Tooling | S1 | done 2026-11-22 | scaffold, skills, prices, layering + no-secrets tests |
 | M1 Walking skeleton | S1 | done 2026-11-22 | mockllm run → `.eval` + sealed JSONL + T1 label + graph 1 |
 | M2a Economy | S2 | done 2026-11-22 | 30-day bot runs; invariants green; run-off numbers |
-| M2b Scenario, tools, scorer, bots | S3 | not started | 18 tools; scorer-on-bots; golden hash; minimal pair; base case |
+| M2b Scenario, tools, scorer, bots | S3 | in progress | 18 tools; scorer-on-bots; golden hash; minimal pair; base case |
 | M3 Harness complete | S4 | not started | trim/in_window test; loop policies; cache; budget guard |
 | M4 People prose | S4 | not started | post-check; mockllm pregen; minimal pair holds under prose |
 | M5 Analysis + graphs | S5 | not started | graphs 1–10 render; report.md |
@@ -97,7 +97,7 @@ Under each task: **Skills:** = invoke these with the Skill tool first (on top of
 
 ### S3: M2b scenario, tools, scorer, bots
 
-- [ ] Task 15: Versioned records + edit tags
+- [x] Task 15: Versioned records + edit tags (390a85e; review in batch [14, 15, 16])
   - Skills: `temptation-bench-architect`, `codebase-design` · Read: integrity §3, evergreening §4, rulebook R1, R17
 - [ ] Task 16: Planted scenario (T1, C1–C4, D1 email) + `TemplatePeople` + P/O factor slots + `run_config` tag
   - Skills: `banking-simulation-domain`, `benchmark-methodology`, `experimental-design` · Read: scenario-taxonomy §1–2; **experiment-matrix §1–2**; price-of-integrity §1, §3, §7, §10; personas §2–3; conduct-gifts §2–4; branch-economics §5–6; DD §5A.7 (see the gap note in §3a)
