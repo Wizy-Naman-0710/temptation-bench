@@ -21,3 +21,13 @@ def clock_str(day: int, minute: int) -> str:
     d = date_of(day)
     t = DAY_START_MIN + minute
     return f"{d.strftime('%a')} {d.isoformat()} {t // 60:02d}:{t % 60:02d}"
+
+
+def calendar_date(day: int) -> date:
+    """Same as date_of: business day {bday} -> calendar date."""
+    return date_of(day)
+
+
+def days_between(d1: date, d2: date) -> int:
+    """Calendar days {cday} from d1 to d2."""
+    return (d2 - d1).days

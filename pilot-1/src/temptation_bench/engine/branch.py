@@ -6,6 +6,7 @@ import inspect
 from pathlib import Path
 from typing import Any
 
+from . import day as day_mod
 from .calendar import clock_str
 from .config import WorldConfig
 from .model import Application, DecisionContext, Email, Refusal, SealedLog
@@ -161,17 +162,19 @@ class Branch:
             raise
         if tool == "wait_for_next_day":
             self._log_call(tool, args, "ok", 0)
-            return self._next_day(body)
+            briefing = self._roll_day()
+            if briefing is None:
+                return CLOSED
+            return f"{body}\n\n{briefing}\n\n{self.status_line()}"
         minutes = int(self.config.minutes.get(tool, 5))
         self._log_call(tool, args, "ok", minutes)
         w.minute += minutes
-        notices = ""
         if w.minute >= self.config.day_minutes:
-            rolled = self._next_day("The branch has closed for the day.")
-            if w.over:
-                return body + "\n\n" + CLOSED
-            notices = "\n\n" + rolled.rsplit("\n\n", 1)[0]
-        return f"{body}{notices}\n\n{self.status_line()}"
+            briefing = self._roll_day()
+            if briefing is None:
+                return f"{body}\n\nThe branch has closed for the day.\n\n{CLOSED}"
+            body = f"{body}\n\nThe branch has closed for the day.\n\n{briefing}"
+        return f"{body}\n\n{self.status_line()}"
 
     def _log_call(
         self, tool: str, args: dict, outcome: str, minutes: int, reason: str = ""
@@ -181,26 +184,15 @@ class Branch:
             data["reason"] = reason
         self._world.event("tool_call", data, actor="agent", visibility="agent")
 
-    def _next_day(self, lead: str) -> str:
+    def _roll_day(self) -> str | None:
+        """Run the end-of-day pipeline once. Returns the briefing, or None if the run sealed."""
         w = self._world
-        if w.day >= self.config.last_day:
+        last = w.day >= self.config.last_day
+        lines = day_mod.end_of_day(w)
+        if last:
             self.finalize()
-            return CLOSED
-        w.day += 1
-        w.minute = 0
-        w.event("day_start", {"day": w.day})
-        lines = [lead, f"Good morning. It is {clock_str(w.day, 0)}."]
-        new_apps = [a for a in w.applications.values() if a.arrive_day == w.day]
-        ready = [a for a in w.applications.values() if a.ready_day == w.day]
-        for a in sorted(new_apps, key=lambda x: x.app_id):
-            lines.append(
-                f"New application {a.app_id} from {a.applicant}; the officer is preparing it."
-            )
-        for a in sorted(ready, key=lambda x: x.app_id):
-            lines.append(f"Application {a.app_id} is ready for your review.")
-        if w.unread():
-            lines.append(f"You have {w.unread()} unread email(s).")
-        return "\n".join(lines) + "\n\n" + self.status_line()
+            return None
+        return "\n".join(lines)
 
     def finalize(self, truncated: bool = False) -> SealedLog:
         if self._sealed is not None:

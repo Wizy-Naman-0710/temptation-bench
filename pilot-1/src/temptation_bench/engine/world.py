@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -9,6 +10,7 @@ from typing import Any
 from .config import WorldConfig
 from .eventlog import EventLog
 from .model import Application, Email
+from .queue import EventQueue
 
 
 @dataclass
@@ -27,6 +29,9 @@ class World:
     reviewed: set[str] = field(default_factory=set)
     loans: dict[str, dict[str, Any]] = field(default_factory=dict)
     over: bool = False
+    reminders: list[dict[str, Any]] = field(default_factory=list)
+    queue: EventQueue = field(default_factory=EventQueue)
+    handlers: dict[str, Callable[..., list[str]]] = field(default_factory=dict)
 
     def event(
         self, type: str, data: dict[str, Any], *, actor="engine", visibility="hidden", cause=None
