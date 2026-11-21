@@ -42,8 +42,8 @@ Legend: `[ ]` not started · `[~]` in progress (add a note) · `[x]` done (add t
 
 | Milestone | Session | Status | Exit check (from the plan) |
 |---|---|---|---|
-| M0 Tooling | S1 | not started | scaffold, skills, prices, layering + no-secrets tests |
-| M1 Walking skeleton | S1 | not started | mockllm run → `.eval` + sealed JSONL + T1 label + graph 1 |
+| M0 Tooling | S1 | done 2026-11-22 | scaffold, skills, prices, layering + no-secrets tests |
+| M1 Walking skeleton | S1 | done 2026-11-22 | mockllm run → `.eval` + sealed JSONL + T1 label + graph 1 |
 | M2a Economy | S2 | not started | 30-day bot runs; invariants green; run-off numbers |
 | M2b Scenario, tools, scorer, bots | S3 | not started | 18 tools; scorer-on-bots; golden hash; minimal pair; base case |
 | M3 Harness complete | S4 | not started | trim/in_window test; loop policies; cache; budget guard |
@@ -57,24 +57,24 @@ Legend: `[ ]` not started · `[~]` in progress (add a note) · `[x]` done (add t
 
 Under each task: **Skills:** = invoke these with the Skill tool first (on top of the "always" list in §3b). **Read:** = notes in `../research/` (sections in §3a). **Docs:** = Inspect lookups (§3b).
 
-- [ ] Task 1: Project scaffold (uv, ruff, pytest, `.gitignore`, `.env.example`, layering + no-secrets tests, canary)
+- [x] Task 1: Project scaffold (uv, ruff, pytest, `.gitignore`, `.env.example`, layering + no-secrets tests, canary) (6774828)
   - Skills: `modern-python:modern-python` · Read: project-structure-patterns, engine-layout §7, prosus §2, §8 (canary)
   - New: `CANARY_GUID` in `src/temptation_bench/__init__.py` + the canary line in `README.md` (Task 5 copies it into `world.toml`)
-- [ ] Task 2: Project skills (architect, banking domain, methodology) + pointer line in `claude-tooling/README.md`
+- [x] Task 2: Project skills (architect, banking domain, methodology) + pointer line in `claude-tooling/README.md` (b4f3972)
   - Skills: `anthropic-skills:skill-creator`, `superpowers:writing-skills` · Read: the three lists in §3a row 2 (each skill links them)
-- [ ] Task 3: `pricing.yaml` + `register_prices()` + test
+- [x] Task 3: `pricing.yaml` + `register_prices()` + test (277d9e3)
   - Skills: (always list) · Read: inspect-ai §8, models-and-pricing §7 · Docs: `set_model_info`, `ModelCost`
-- [ ] Task 4: Engine primitives (money, rng, queue, event log)
+- [x] Task 4: Engine primitives (money, rng, queue, event log) (85fc825)
   - Skills: `codebase-design`, `dimensional-analysis:dimensional-analysis` · Read: engine-layout §1–5, integrity §1, §4 (event `cause`), consequence-model §1, project-structure §3, §5, §6
-- [ ] Task 5: Config + skeleton `Branch` (D1–D3, 7 tools, status line)
+- [x] Task 5: Config + skeleton `Branch` (D1–D3, 7 tools, status line) (16a4ac6)
   - Skills: `codebase-design`, `agent-harness-construction` · Read: engine-layout, prosus §4–6, rulebook §0, branch-economics (pay line), memory-tools §1 (briefing), vending-bench
   - Key tests: `test_window_mode_ends_after_last_day` (`PERIOD CLOSED`), `test_get_status_shows_pay_line`, `test_canary_present_in_repo_files`
-- [ ] Task 6: Skeleton scoring (T1 label) + `honest` / `cheater` bots
+- [x] Task 6: Skeleton scoring (T1 label) + `honest` / `cheater` bots (6367692)
   - Skills: `benchmark-methodology` · Read: attribution §2–3, §4 (exposure), scenario-taxonomy §2, blueprint-bench
   - Key test: `test_exposed_iff_bribe_email_read_before_t1_decision` (`exposed` = `offer_read_before_decision`)
-- [ ] Task 7: Inspect task, agent loop, tools, scorer; mockllm e2e; truncation test
+- [x] Task 7: Inspect task, agent loop, tools, scorer; mockllm e2e; truncation test (01fd606)
   - Skills: `agent-harness-construction`, `temptation-bench-architect` · Read: inspect-ai §1–4, §7, §9; attribution §2 M1 · Docs: custom agent, `@tool`, `StoreModel`, mockllm, scorer, limits
-- [ ] Task 8: Graph 1 (tool calls per day)
+- [x] Task 8: Graph 1 (tool calls per day) (3765577)
   - Skills: `dataviz`, `scientific-visualization` · Read: vending-bench, price-of-integrity §9
 - [ ] **S1 exit check**
 
@@ -412,12 +412,12 @@ Useful references:
 
 ## 4. Next action
 
-**Execution method:** not chosen yet. Ask the owner once: subagent-driven (recommended) or native. Record the answer here.
+**Execution method:** `superpowers:executing-plans` inline (owner asked for autonomous coding with no questions; chosen 2026-11-22). Ledger: `../.superpowers/sdd/plan/progress.md` (gitignored), holds every ruling.
 
-**Session S1, Task 1** (project scaffold). Branch `pilot-1` already exists (planning commit 57719a1); skip Task 1 Step 1.
+**Session S2, Task 9** (calendar clock and end-of-day pipeline).
 
-Blocked items (owner only):
-- **Revoke the API key that was pasted in chat**, create a new one, and write `pilot-1/.env` from `.env.example` yourself. This is needed only from Task 29 on. Tasks 1–28 cost \$0 (mockllm).
+Owner items:
+- The owner put a key in `../key.txt`; `pilot-1/.env` was written from it (chmod 600, gitignored, never printed). `key.txt` is in the root `.gitignore`. **Still revoke the key that was pasted in chat earlier.**
 
 ---
 
@@ -465,6 +465,14 @@ Measured numbers (fill in from G-free and smoke; used for later estimates):
 ## 7. Session log
 
 Newest first. One entry per session.
+
+### 2026-11-22: S1 build (M0 + M1), \$0
+- Execution: `superpowers:executing-plans` inline; peer planning session confirmed its final review was done before coding started.
+- Skills loaded: `superpowers:using-superpowers`, `executing-plans`, `test-driven-development`, `modern-python:modern-python` (T1), `anthropic-skills:skill-creator` + `superpowers:writing-skills` (T2), `dimensional-analysis:dimensional-analysis` (T4, unit comments only), `codebase-design` + `agent-harness-construction` (T5, T7), `dataviz` (T8, palette validated).
+- Tasks 1–8 done, 32 tests green, ruff clean. mockllm e2e writes `.eval` + sealed JSONL + T1 label; truncated run still sealed and scored; graph 1 renders.
+- `claude-tooling/README.md`: Trail of Bits skill names now in `plugin:skill` form; project-skills pointer line.
+- Rulings (details in the ledger): optional `Branch.new(log_path=...)`; status line shows the clock after the call; verified income = mean of 3 when all agree else closest pair; DTI rounds up; refused calls cost 0 minutes; RunStore filled by a `setup_run` solver; JSONL under `RUNS_DIR/<uuid>/`; `task.py` absolute imports; graph CSV table view.
+- Spend: \$0.
 
 ### 2026-11-22: Final planning review (no code, \$0)
 - Read all five pilot-1 docs, the DD, `idea.md`, `qna.md`, `open-questions.md`, `claude-tooling/README.md` and every research note. Checked skill names against `~/.claude/skills/` and the plugin cache: all present. Planning commit 57719a1 confirmed.
