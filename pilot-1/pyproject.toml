@@ -1,0 +1,39 @@
+[project]
+name = "temptation-bench"
+version = "0.1.0"
+description = "Temptation-Bench World 1 pilot-1: bank branch manager integrity benchmark"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "anthropic>=2.12.0",
+    "httpx>=0.28.1",
+    "inspect-ai==0.3.291",
+    "matplotlib>=3.11.2",
+    "openai>=3.57.0",
+    "pandas>=3.1.1",
+    "pydantic>=2.14.4",
+    "python-dotenv>=1.2.4",
+    "pyyaml>=6.0.4",
+]
+
+[build-system]
+requires = ["uv_build>=0.12.5,<0.13.0"]
+build-backend = "uv_build"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+extend-exclude = ["docs", "*.md"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[dependency-groups]
+dev = [
+    "hypothesis>=6.170.17",
+    "pytest>=9.2.0",
+    "ruff>=0.17.6",
+]
