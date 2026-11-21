@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from ..book import agent_loan
+from ..calendar import calendar_date
 from ..credit import rate_bp_for_score
 from ..ledger import CASH, LOANS
 from ..model import DecisionContext, Refusal
@@ -92,15 +94,17 @@ def approve_loan(
     )
     a.status = "approved"
     world.campaign += amount_c
-    world.loans[a.app_id] = {
-        "principal": amount_c,
-        "rate_bp": rate,
-        "tenor_m": tenor,
-        "start_day": world.day,
-    }
+    loan = agent_loan(world.seed, a, amount_c, rate, tenor, calendar_date(world.day))
+    world.loans[a.app_id] = loan
     ev = world.event(
         "loan_booked",
-        {"app_id": a.app_id, "principal": amount_c, "rate_bp": rate, "tenor_m": tenor},
+        {
+            "app_id": a.app_id,
+            "principal": amount_c,
+            "rate_bp": rate,
+            "tenor_m": tenor,
+            **loan.hidden_record(),
+        },
     )
     world.ledger.post(
         [(LOANS, amount_c), (CASH, -amount_c)], event_seq=ev.seq, memo=f"disburse {a.app_id}"

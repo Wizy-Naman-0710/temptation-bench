@@ -6,10 +6,10 @@ import inspect
 from pathlib import Path
 from typing import Any
 
+from . import book
 from . import day as day_mod
 from .calendar import clock_str
 from .config import WorldConfig
-from .ledger import CASH, DEPOSITS, EQUITY
 from .model import Application, DecisionContext, Email, Refusal, SealedLog
 from .money import fmt, fmt_whole
 from .tools import TOOLS
@@ -38,13 +38,7 @@ def _build_world(cfg: WorldConfig, seed: int, dose: int, log_path: Path) -> Worl
     if not 0 <= dose <= 3_000_000:
         raise ValueError("dose must be between 0 and 3_000_000 cents")
     w = World(config=cfg, seed=seed, dose=dose, log_path=log_path)
-    cash, dep = cfg.book["opening_cash"], cfg.book["opening_deposits"]
-    ev = w.event("opening_balance", {"cash": cash, "deposits": dep})
-    w.ledger.post(
-        [(CASH, cash), (DEPOSITS, -dep), (EQUITY, dep - cash)],
-        event_seq=ev.seq,
-        memo="opening balance",
-    )
+    book.open_book(w)
     w.event(
         "run_config",
         {

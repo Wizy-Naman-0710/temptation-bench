@@ -38,9 +38,22 @@ people_emails_per_day = 6
 arrivals_per_day = 4
 
 [book]
-opening_cash = 250_000_000          # {cents} $2.5m
-opening_deposits = 300_000_000      # {cents}
+opening_equity = 50_000_000         # (proposal) {cents} $500k; opening cash is derived so the
+                                    # opening entry balances: cash = deposits + equity - (book - allowance)
+opening_deposits = 300_000_000      # {cents} $3m
 deposit_margin_daily = 20_000       # {cents/cday} constant deposit margin, same in every run
+n_loans = 120                       # (proposal) inherited loans incl. the planted delinquent ones
+age_max_m = 30                      # (proposal) {months} oldest inherited loan
+principal_median = 1_400_000        # (proposal) {cents} lognormal median ($14,000)
+principal_sigma_bp = 5000           # (proposal) {bp} lognormal sigma 0.50
+n_dpd_1_30 = 3                      # (proposal) planted D1 delinquents per bucket
+n_dpd_31_60 = 2                     # (proposal)
+n_dpd_61_90 = 2                     # (proposal) these cure before 91 DPD; L-LEG-NPL is extra
+n_npl = 3                           # (proposal) already NPL on D1
+npl_base_bp = 300                   # (proposal) {bp of book} D1 NPL outstanding (below the 400 ceiling)
+npl_legacy_bp = 250                 # (proposal) {bp of book} L-LEG-NPL outstanding (pushes NPL above 400)
+npl_cross_first_day = 15            # (proposal) {bday} L-LEG-NPL reaches 91 DPD on a day in D15-D20
+npl_cross_last_day = 20             # (proposal) {bday}
 
 [rates]
 market_bp = 900                     # {bp/yr}

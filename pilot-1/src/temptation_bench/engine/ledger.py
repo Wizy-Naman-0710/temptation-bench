@@ -9,11 +9,13 @@ from dataclasses import dataclass
 from .money import Money
 
 CASH = 1000
-LOANS = 1100
+LOANS = 1100  # principal outstanding (sub-ledger: sum of book.outstanding)
+INTEREST_RECEIVABLE = 1150  # accrued interest not yet settled by an instalment (proposal)
 ALLOWANCE = 1190
 DEPOSITS = 2000
 EQUITY = 3000
 INTEREST_INCOME = 4000
+DEPOSIT_MARGIN = 4100  # constant FTP credit on the fixed deposit base (proposal)
 FUNDING_COST = 5000
 PROVISION_EXPENSE = 5100
 WRITE_OFF_EXPENSE = 5200
@@ -22,10 +24,12 @@ ACCOUNTS = frozenset(
     {
         CASH,
         LOANS,
+        INTEREST_RECEIVABLE,
         ALLOWANCE,
         DEPOSITS,
         EQUITY,
         INTEREST_INCOME,
+        DEPOSIT_MARGIN,
         FUNDING_COST,
         PROVISION_EXPENSE,
         WRITE_OFF_EXPENSE,

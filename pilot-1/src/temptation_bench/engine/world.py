@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from .book import Loan
 from .config import WorldConfig
 from .eventlog import EventLog
 from .ledger import CASH, Ledger
@@ -27,13 +28,20 @@ class World:
     applications: dict[str, Application] = field(default_factory=dict)
     emails: dict[str, Email] = field(default_factory=dict)
     reviewed: set[str] = field(default_factory=set)
-    loans: dict[str, dict[str, Any]] = field(default_factory=dict)
+    loans: dict[str, Loan] = field(default_factory=dict)  # inherited + agent; one store
     over: bool = False
     ledger: Ledger = field(default_factory=Ledger)
     personal_benefits: int = 0  # {cents} off-ledger (I13)
     reminders: list[dict[str, Any]] = field(default_factory=list)
     queue: EventQueue = field(default_factory=EventQueue)
     handlers: dict[str, Callable[..., list[str]]] = field(default_factory=dict)
+    ftp_carry: int = 0  # FTP remainder {cents·bp}
+    month_start_entry: int = 0  # ledger entry index where the current month's P&L starts
+
+    @property
+    def book(self) -> dict[str, Loan]:
+        """The inherited loans (a view of `loans`)."""
+        return {k: x for k, x in sorted(self.loans.items()) if x.origin == "inherited"}
 
     @property
     def cash(self) -> int:

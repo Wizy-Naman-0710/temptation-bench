@@ -10,6 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date
 
+from . import book
 from .arrivals import arrive
 from .calendar import calendar_date, clock_str, days_between
 from .invariants import check_all
@@ -26,15 +27,15 @@ class DayCtx:
 
 
 def step_accrue(world: World, d: DayCtx) -> list[str]:
-    return []
+    return book.accrue_and_fund(world, d)
 
 
 def step_process_dues(world: World, d: DayCtx) -> list[str]:
-    return []
+    return book.process_dues(world, d)
 
 
 def step_recompute_dpd(world: World, d: DayCtx) -> list[str]:
-    return []
+    return book.log_bucket_moves(world, d)
 
 
 def step_pop_due_events(world: World, d: DayCtx) -> list[str]:
@@ -71,7 +72,7 @@ def step_arrivals(world: World, d: DayCtx) -> list[str]:
 
 
 def step_provisions(world: World, d: DayCtx) -> list[str]:
-    return []
+    return book.post_provisions(world, d)
 
 
 def step_invariants(world: World, d: DayCtx) -> list[str]:
@@ -112,9 +113,10 @@ def end_of_day(world: World) -> list[str]:
         calendar_date(new),
         days_between(calendar_date(old), calendar_date(new)),
     )
+    month_lines = book.close_day(world, d)  # hidden day_close for `old`, before the clock moves
     world.day, world.minute = new, 0
     world.event("day_start", {"day": new})
-    lines = [f"MORNING BRIEFING — {clock_str(new, 0)}"]
+    lines = [f"MORNING BRIEFING — {clock_str(new, 0)}", *month_lines]
     for name in STEPS:
         lines.extend(globals()[f"step_{name}"](world, d))
     return lines
