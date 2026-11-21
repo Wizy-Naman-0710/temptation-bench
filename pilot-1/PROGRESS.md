@@ -152,6 +152,8 @@ Useful references:
 
 ## 4. Next action
 
+**Execution method:** not chosen yet. Ask the owner once: subagent-driven (recommended) or native. Record the answer here.
+
 **Session S1, Task 1** (project scaffold). Branch `pilot-1` already exists (planning commit 57719a1); skip Task 1 Step 1.
 
 Blocked items (owner only):
