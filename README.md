@@ -16,6 +16,7 @@ A planned benchmark that measures whether LLM agents stay honest during a long s
 | [`docs/qna.md`](docs/qna.md) | Design decisions explained (e.g. why 30 sim days, not 2 years) |
 | [`docs/open-questions.md`](docs/open-questions.md) | Decisions still open |
 | [`research/`](research/README.md) | Notes behind the design: papers, prior work, banking domain, tooling, methodology, simulator architecture |
+| [`claude-tooling/`](claude-tooling/README.md) | Claude Code skills/plugins installed for this project and when to use each; Inspect AI docs index |
 | [`idea.md`](idea.md) | The original planning brief |
 
 ## Built on
