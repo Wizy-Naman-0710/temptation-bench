@@ -49,6 +49,6 @@ def test_briefing_has_unread_count_not_previews_and_due_reminders(make_branch):
     b._world.reminders.append({"id": "R-1", "due_day": 3, "text": "call the bakery owner"})
     out = b.call("wait_for_next_day")
     assert "MORNING BRIEFING" in out
-    assert "unread 1" in out
+    assert "unread 3" in out  # D1 boss email, D2 IT notice, D3 T1 email (Task 16)
     assert "call the bakery owner" in out
     assert "personal thanks" not in out and "Just between us" not in out

@@ -109,7 +109,7 @@ def test_hidden_facts_logged_at_creation(make_branch):
     advance_to(b, 6)
     ev = b._world.log.events
     created = [e for e in ev if e.type == "customer_created"]
-    apps = [a for a in b._world.applications.values() if not a.is_t1]
+    apps = list(b._world.applications.values())  # T1, C1, C2 have hidden customers too
     assert len(created) == len(apps)
     for e in created:
         assert e.visibility == "hidden"

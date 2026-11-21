@@ -50,6 +50,7 @@ class Application:
     officer_note: str = ""
     status: str = "pending"  # pending | approved | rejected | escalated | withdrawn
     is_t1: bool = False
+    planted: bool = False  # T1, C1, C2: always take the offered rate (no take-up draw)
     extra: dict[str, Any] = field(default_factory=dict)
 
 

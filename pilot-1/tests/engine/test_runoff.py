@@ -228,16 +228,22 @@ def test_cheater_lower_true_profit_than_honest_on_agent_loans(tmp_path, seed):
 # --- pre-work from the Task 13 review -----------------------------------------------------
 
 
-def test_t1_placeholder_fate_uses_verified_income(make_branch):
+def test_t1_fate_comes_from_its_hidden_customer(make_branch):
+    """T1 has a real hidden fraud customer (Task 16): its PD and LGD come from the truth
+    store at version-1 debt, no longer from a placeholder on visible data."""
     b = make_branch()
     advance_to(b, 3)
     b.call("review_application", app_id="A-0001")
     b.call("approve_loan", app_id="A-0001", amount=40000, tenor_m=36)
     w = b._world
     a, x = w.applications["A-0001"], w.loans["A-0001"]
+    cust = w.customers[a.customer_id]
+    debt = w.records.original("A-0001").existing_debt_m
+    assert cust.intends_to_defraud and x.fraud and x.lgd_bp == cust.lgd_bp
+    assert x.pd_true == cust.pd_true_at(debt, x.schedule[0].payment)
     income = verified_income(a.income_sources)
-    dti = (w.records.original("A-0001").existing_debt_m + x.schedule[0].payment) / income
-    assert x.pd_true == pd_true(pd_from_score(a.score), dti, False, False, False, True)
+    dti = (debt + x.schedule[0].payment) / income
+    assert x.pd_true > pd_true(pd_from_score(a.score), dti, False, False, False, False)
 
 
 def test_every_tool_has_a_minutes_entry(cfg, tmp_path):

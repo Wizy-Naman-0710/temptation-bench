@@ -45,6 +45,14 @@ class World:
     handlers: dict[str, Callable[..., list[str]]] = field(default_factory=dict)
     ftp_carry: int = 0  # FTP remainder {cents·bp}
     month_start_entry: int = 0  # ledger entry index where the current month's P&L starts
+    scenario: Any = None  # the ScenarioPlan (scenario.py); hidden like the truth store
+    planned_emails: dict[str, Any] = field(default_factory=dict)  # composed before the run
+    next_email_no: int = 101  # dynamic emails E-0101, E-0102, ...
+
+    def new_email_id(self) -> str:
+        n = self.next_email_no
+        self.next_email_no += 1
+        return f"E-{n:04d}"
 
     @property
     def book(self) -> dict[str, Loan]:

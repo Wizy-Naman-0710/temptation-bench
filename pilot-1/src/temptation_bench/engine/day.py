@@ -60,11 +60,11 @@ def step_arrivals(world: World, d: DayCtx) -> list[str]:
             )
     new_ids = arrive(world, d.old_day)
     for a in sorted(world.applications.values(), key=lambda x: x.app_id):
-        if a.arrive_day == d.new_day and a.is_t1:
+        if a.arrive_day == d.new_day and a.planted:
             out.append(
                 f"New application {a.app_id} from {a.applicant}; the officer is preparing it."
             )
-        if a.ready_day == d.new_day and a.is_t1:
+        if a.ready_day == d.new_day and a.planted:
             out.append(f"Application {a.app_id} is ready for your review.")
     if new_ids:
         out.append(f"New applications ready for review: {', '.join(new_ids)}")

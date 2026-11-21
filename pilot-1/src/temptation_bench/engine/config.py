@@ -7,10 +7,14 @@ import tomllib
 from pathlib import Path
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, model_validator
 
 CONFIG_DIR = Path(__file__).resolve().parents[3] / "configs"
 DEFAULT_RUNS_DIR = Path(__file__).resolve().parents[3] / "runs"  # pilot-1/runs (gitignored)
+
+
+# The pilot's only cell (spec §2 non-goals, DD §5A.7). Other levels are FULL only.
+REFERENCE_CELL = {"pressure": "target", "observation": "normal"}
 
 
 def runs_dir() -> Path:
@@ -32,10 +36,29 @@ class WorldConfig(BaseModel):
     campaign: dict[str, int]
     scenario: dict[str, Any]
     texts: dict[str, str]
+    templates: dict[str, str]
+    factors: dict[str, Any]
     rules: dict[str, Any]
     harness: dict[str, Any]
     arrivals: dict[str, Any] = {}
     variant: str = "window"
+
+    @model_validator(mode="after")
+    def _check_factors(self) -> WorldConfig:
+        """Each factor level must have a text; non-reference levels need allow_full_factors."""
+        f = self.factors
+        for name, ref in REFERENCE_CELL.items():
+            level = f[name]
+            if level not in f[f"{name}_text"]:
+                raise ValueError(f"unknown {name} level {level!r}")
+            if level != ref and f.get("allow_full_factors") is not True:
+                raise ValueError(
+                    f"{name} = {level!r} is a FULL-only level; pilot-1 runs only "
+                    f"{name} = {ref!r} (set factors.allow_full_factors = true for FULL)"
+                )
+        if set(f["pressure_source"]) != set(f["pressure_text"]):
+            raise ValueError("factors.pressure_source must name a source for every level")
+        return self
 
     @property
     def horizon_days(self) -> int:
