@@ -15,12 +15,12 @@ It's written for future Claude sessions, so they can pick the right tool without
 | When you are… | Use |
 |---|---|
 | Starting any new feature or design | `superpowers:brainstorming`, then `superpowers:writing-plans` |
-| Writing simulator code | `superpowers:test-driven-development` + `property-based-testing` |
+| Writing simulator code | `superpowers:test-driven-development` + `property-based-testing:property-based-testing` |
 | Fixing a bug or a failing test | `superpowers:systematic-debugging` |
 | About to say "done" or "tests pass" | `superpowers:verification-before-completion` |
-| Setting up Python tooling (uv, ruff, pytest, pyproject) | `modern-python` |
-| Checking money/time/rate formulas for unit mix-ups | `dimensional-analysis` |
-| Checking whether the tests really catch bugs | `mutation-testing` |
+| Setting up Python tooling (uv, ruff, pytest, pyproject) | `modern-python:modern-python` |
+| Checking money/time/rate formulas for unit mix-ups | `dimensional-analysis:dimensional-analysis` |
+| Checking whether the tests really catch bugs | `mutation-testing:mutation-testing` |
 | Planning experiments (factors, twins, randomization, blocking, replication) | `experimental-design` |
 | Turning ideas into testable hypotheses or a pre-registration | `hypothesis-generation` |
 | Working out how many runs/seeds are needed, or the minimum detectable effect | `statistical-power` |
@@ -36,14 +36,14 @@ It's written for future Claude sessions, so they can pick the right tool without
 | Ecosystem | Items | Source / install |
 |---|---|---|
 | Superpowers | brainstorming, writing-plans, TDD, systematic-debugging, verification, code review, subagent-driven-development | `superpowers@claude-plugins-official` |
-| Trail of Bits | `property-based-testing`, `modern-python`, `dimensional-analysis`, `mutation-testing` | `claude plugin marketplace add trailofbits/skills`, then `claude plugin install <name>@trailofbits` |
+| Trail of Bits | `property-based-testing:property-based-testing`, `modern-python:modern-python`, `dimensional-analysis:dimensional-analysis`, `mutation-testing:mutation-testing` (Skill tool needs the `plugin:skill` form) | `claude plugin marketplace add trailofbits/skills`, then `claude plugin install <name>@trailofbits` |
 | K-Dense science | `experimental-design`, `hypothesis-generation`, `statistical-power`, `statistical-analysis`, `literature-review`, `scientific-visualization` | `gh skill install K-Dense-AI/scientific-agent-skills <name> --agent claude-code --scope user` |
 | Skill Creator | `anthropic-skills:skill-creator` | Built in |
 | Context7 | Docs lookup MCP | `context7@claude-plugins-official` |
 
 ## Caveats
 
-- **`modern-python` changes `python` and `pip`.** At the start of every session it adds small wrapper scripts ("shims") that intercept `python script.py`, `pip install` and `python -m pip`, and suggest `uv` instead. `python -c` and `python -m <module>` pass straight through. Prefer `uv run` / `uv add` in this project (`uv` 0.12.5 is installed).
+- **`modern-python:modern-python` changes `python` and `pip`.** At the start of every session it adds small wrapper scripts ("shims") that intercept `python script.py`, `pip install` and `python -m pip`, and suggest `uv` instead. `python -c` and `python -m <module>` pass straight through. Prefer `uv run` / `uv add` in this project (`uv` 0.12.5 is installed).
 - **`literature-review` has optional paid scripts.** These are the AI-drawn diagrams (OpenRouter) and the Parallel search API. They only run if `OPENROUTER_API_KEY` / `PARALLEL_API_KEY` are set, and they aren't. **Ask the user before setting them or using paid APIs.**
 - **K-Dense skills expect Python 3.12+** and their own isolated environment for their scripts.
 - **The old `statistical-analysis`** skill (a simpler one from `anthropics/knowledge-work-plugins`) was replaced. A backup is at `~/.claude/skill-backups/statistical-analysis-old`.
@@ -53,7 +53,7 @@ It's written for future Claude sessions, so they can pick the right tool without
 
 - **Pyright LSP** (Python type checking): add it once real Python code exists.
 - **Plugin Developer Toolkit**: "later" in the recommendation.
-- **Project-specific skills** (`temptation-bench-architect`, `banking-simulation-domain`, `benchmark-methodology`) and a project `CLAUDE.md`: planned but not written. See section 3 of `install_skills.md`. Build them with `skill-creator` when the user asks.
+- **Project-specific skills** (`temptation-bench-architect`, `banking-simulation-domain`, `benchmark-methodology`): now written, in [`pilot-1/.claude/skills/`](../pilot-1/.claude/skills/) (load when Claude Code starts in `pilot-1/`).
 
 ## Keep tooling lean
 
