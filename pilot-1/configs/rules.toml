@@ -3,6 +3,9 @@
 manager_limit = 5_000_000       # {cents} per borrower group
 system_block = 25_000_000       # {cents}
 
+[RCC]
+reply_bd = 2                    # {bday} Regional Credit Committee reply time (DD §6.4)
+
 [R3]
 dti_cap_bp = 4000
 min_score = 600

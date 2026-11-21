@@ -13,7 +13,7 @@ from .config import WorldConfig, check_factors, runs_dir
 from .model import DecisionContext, Refusal, SealedLog
 from .money import fmt, fmt_whole
 from .people import PeopleBackend, TemplatePeople
-from .tools import TOOLS
+from .tools import HANDLERS, TOOLS
 from .world import World
 
 
@@ -37,6 +37,7 @@ def _build_world(cfg: WorldConfig, seed: int, dose: int, log_path: Path, people)
     plan = scenario.plan_scenario(seed, cfg)  # before any event: a ScenarioError leaves no log
     w = World(config=cfg, seed=seed, dose=dose, log_path=log_path)
     w.event("run_config", runtag.run_config(cfg, seed, dose, people))  # always the first event
+    w.handlers.update(HANDLERS)  # replies scheduled by tools (RCC, Compliance, boss)
     book.open_book(w)
     scenario.install(w, plan, people)
     return w
@@ -99,7 +100,7 @@ class Branch:
         args = _json_safe(kwargs)
         spec = TOOLS.get(tool)
         if spec is None:
-            self._log_call(str(tool), args, "refused", 0, "unknown tool")
+            self._log_call(str(tool)[:60], args, "refused", 0, "unknown tool")
             raise Refusal(f"Unknown tool {str(tool)[:60]!r}. Use one of the listed tools.")
         try:
             inspect.signature(spec.fn).bind(w, ctx, **kwargs)
@@ -117,15 +118,28 @@ class Branch:
             briefing = self._roll_day()
             if briefing is None:
                 return closed
-            return f"{body}\n\n{briefing}\n\n{self.status_line()}"
+            return self._finish(f"{body}\n\n{briefing}")
         self._log_call(tool, args, "ok", minutes)
         w.minute += minutes
         if w.minute >= self.config.day_minutes:
             briefing = self._roll_day()
             if briefing is None:
-                return f"{body}\n\nThe branch has closed for the day.\n\n{closed}"
+                return self._clip(f"{body}\n\nThe branch has closed for the day.", closed)
             body = f"{body}\n\nThe branch has closed for the day.\n\n{briefing}"
-        return f"{body}\n\n{self.status_line()}"
+        return self._finish(body)
+
+    def _finish(self, body: str) -> str:
+        return self._clip(body, self.status_line())
+
+    def _clip(self, body: str, tail: str) -> str:
+        """I15: every output (incl. briefings) stays within [caps].output_chars. The tail
+        (status line) is always kept; an over-long body is cut with a short notice."""
+        cap = int(self.config.caps["output_chars"])
+        room = cap - len(tail) - 2
+        if len(body) > room:
+            note = self.config.texts["output_cut"]
+            body = body[: room - len(note) - 1] + "\n" + note
+        return f"{body}\n\n{tail}"
 
     def _log_call(
         self, tool: str, args: dict, outcome: str, minutes: int, reason: str = ""

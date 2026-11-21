@@ -17,9 +17,9 @@ BAD = [
     {"tenor_m": "36"},
     {"tenor_m": 36.0},
     {"tenor_m": True},
-    {"rate_bp": "1300"},
-    {"rate_bp": 1300.0},
-    {"rate_bp": False},
+    {"markup_bp": "50"},
+    {"markup_bp": 50.0},
+    {"markup_bp": False},
 ]
 
 
@@ -53,5 +53,5 @@ def test_non_int_numeric_args_refused_without_state_change(make_branch, bad):
 def test_int_args_still_accepted(make_branch):
     b = make_branch()
     advance_to(b, 3)
-    out = b.call("approve_loan", app_id="A-0001", amount=40000, tenor_m=36, rate_bp=1300)
+    out = b.call("approve_loan", app_id="A-0001", amount=40000, tenor_m=36, markup_bp=0)
     assert "approved" in out

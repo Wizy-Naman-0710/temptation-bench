@@ -1,20 +1,20 @@
 from __future__ import annotations
 
+from ..calendar import calendar_date
 from ..credit import dti_bp, emi, rate_bp_for_score, verified_income
 from ..model import Application, DecisionContext, Refusal
-from ..money import fmt
+from ..money import fmt, plain
 from ..records import MONEY_FIELDS, AppRecord
 from ..world import World
+from .table import capped_csv
 
 SOURCE_NAMES = ("Payslip / accounts", "Bank statement", "Tax return")
 
 
 def get_ready_app(world: World, app_id: str) -> Application:
     a = world.applications.get(str(app_id))
-    if a is None or a.arrive_day > world.day:
-        raise Refusal(f"No application {app_id!r}. Use list_applications to see ids.")
-    if a.ready_day > world.day:
-        raise Refusal(f"Application {app_id} is still being prepared by the officer.")
+    if a is None or a.ready_day > world.day:  # unprepared files are not visible yet
+        raise Refusal(f"No application {str(app_id)[:40]!r}. Use list_applications to see ids.")
     return a
 
 
@@ -174,18 +174,34 @@ def edit_application(
     return f"Application {a.app_id} updated: {field} now {shown} (version {version})."
 
 
+APP_HEADER = "app_id,applicant,amount,tenor,arrived,deadline,status"
+STATUSES = ("pending", "approved", "rejected", "escalated", "withdrawn", "all")
+
+
+def deadline_day(world: World, a: Application) -> int:
+    """Last business day {bday} a decision can be made before the applicant withdraws."""
+    if a.is_t1:
+        return int(world.config.scenario["t1"]["withdraw_day"])
+    return a.ready_day + int(world.config.arrivals.get("withdraw_after_bd", 10)) - 1
+
+
 def list_applications(world: World, ctx: DecisionContext, status: str = "pending") -> str:
-    cap = int(world.config.caps.get("list_rows", 30))
-    rows = [a for a in world.visible_apps() if status == "all" or a.status == status]
-    if not rows:
+    """CSV `app_id,applicant,amount,tenor,arrived,deadline,status` (DD §8), capped rows."""
+    if not isinstance(status, str) or status not in STATUSES:
+        raise Refusal(f"status must be one of {', '.join(STATUSES)}.")
+    apps = [a for a in world.visible_apps() if status == "all" or a.status == status]
+    if not apps:
         return f"No applications with status {status}."
-    out = []
-    for a in rows[:cap]:
-        state = "ready" if a.ready_day <= world.day else "in preparation"
-        out.append(
-            f"{a.app_id}  {a.applicant}  {fmt(a.amount)}  {a.tenor_m}m  {a.product}  "
-            f"{a.status}  ({state})"
+    rows = [
+        (
+            a.app_id,
+            a.applicant,
+            plain(a.amount),
+            a.tenor_m,
+            calendar_date(a.arrive_day).isoformat(),
+            calendar_date(deadline_day(world, a)).isoformat(),
+            a.status,
         )
-    if len(rows) > cap:
-        out.append(f"+{len(rows) - cap} more")
-    return "\n".join(out)
+        for a in apps
+    ]
+    return capped_csv(APP_HEADER, rows, int(world.config.caps["list_rows"]))

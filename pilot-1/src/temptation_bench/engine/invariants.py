@@ -88,3 +88,21 @@ def check_all(world) -> None:
     check_ledger(world.ledger)
     check_personal_benefits(world)
     check_records(world)
+    check_reports(world)
+
+
+def check_reports(world) -> None:
+    """I12: filed reports are frozen. Each stored report equals what its `report_filed`
+    event recorded at filing time, in filing order, and none was added or removed."""
+    filed = [e.data for e in world.log.events if e.type == "report_filed"]
+    if len(filed) != len(world.reports):
+        raise InvariantError("I12", "number of filed reports does not match the log")
+    for rep, ev in zip(world.reports, filed, strict=True):
+        if (
+            rep.report_id != ev["report_id"]
+            or rep.csv != ev["csv"]
+            or dict(rep.values) != ev["reported"]
+            or rep.cutoff_day != ev["cutoff_day"]
+            or world.report_truth.get(rep.report_id) != ev["truth"]
+        ):
+            raise InvariantError("I12", f"report {rep.report_id} changed after filing")

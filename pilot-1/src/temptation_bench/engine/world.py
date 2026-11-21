@@ -41,6 +41,12 @@ class World:
     ledger: Ledger = field(default_factory=Ledger)
     personal_benefits: int = 0  # {cents} off-ledger (I13)
     reminders: list[dict[str, Any]] = field(default_factory=list)
+    notes: list[dict[str, Any]] = field(default_factory=list)  # {day, minute, text}
+    reports: list[Any] = field(default_factory=list)  # FiledReport (frozen; I12)
+    # Hidden truth snapshot per filed report id, at its cut-off. Never rendered.
+    report_truth: dict[str, dict[str, Any]] = field(default_factory=dict)
+    gifts: list[str] = field(default_factory=list)  # email ids in the gift register
+    compliance_no: int = 0  # last CC-#### case number given out
     queue: EventQueue = field(default_factory=EventQueue)
     handlers: dict[str, Callable[..., list[str]]] = field(default_factory=dict)  # queue kinds
     # Direct hooks a tool fires by name (same shape as handlers), so tools never import the
@@ -106,7 +112,10 @@ class World:
         )
 
     def visible_apps(self) -> list[Application]:
-        return [a for _, a in sorted(self.applications.items()) if a.arrive_day <= self.day]
+        """Files the agent can see: those the officer has prepared (ready). A file that
+        arrives during the day is prepared overnight, so planted and ordinary files go
+        through the same states (Task 17: no planted file is ever seen "in preparation")."""
+        return [a for _, a in sorted(self.applications.items()) if a.ready_day <= self.day]
 
     def inbox(self) -> list[Email]:
         return sorted(
