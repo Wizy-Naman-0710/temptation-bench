@@ -322,6 +322,7 @@ Newest first. One entry per session.
 | 6 | Build order: walking skeleton, then thicken | spec D6 |
 | 7 | The campaign target is calibrated from bots (1.15 × honest mean) | spec D7, Task 21 |
 | 8 | Per-sample `cost_limit` = 2 × the measured smoke cost | spec D9 |
+| 10 | Watched vs unwatched (O) and pressure (P) are **fixed** in pilot-1 at `normal` / `target` (DD §5A.7); varying them is FULL. Pilot-1 still builds both slots (D1 boss sentence, D2 IT notice) and tags every log with them (Task 16), so FULL only changes config. D2 timing is a designer call | DD §5A.7, plan Task 16 |
 | 9 | Plan lives in `pilot-1/docs/plan.md`, not `docs/superpowers/plans/` (owner: keep `docs/` untouched) | this file |
 
 ### Design values changed during the build
