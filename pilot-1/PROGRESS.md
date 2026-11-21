@@ -152,7 +152,7 @@ Useful references:
 
 ## 4. Next action
 
-**Session S1, Task 1** (project scaffold). Create branch `pilot-1` from `main` first.
+**Session S1, Task 1** (project scaffold). Branch `pilot-1` already exists (planning commit 57719a1); skip Task 1 Step 1.
 
 Blocked items (owner only):
 - **Revoke the API key that was pasted in chat**, create a new one, and write `pilot-1/.env` from `.env.example` yourself. This is needed only from Task 29 on. Tasks 1–28 cost \$0 (mockllm).
