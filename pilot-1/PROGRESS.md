@@ -5,7 +5,7 @@ This is the **live** status file. Every session reads it first and updates it la
 - Plan (fixed, don't tick there): [`docs/plan.md`](docs/plan.md)
 - Spec (approved): [`docs/spec.md`](docs/spec.md)
 - Last updated: 2026-11-22, during Session S2
-- **Current state: S1, S2 done; S3 Task 15 done, Task 16 running. \$0 spent.**
+- **Current state: S1, S2 done; S3 Tasks 15–16 done, batch review [14, 15, 16] running. \$0 spent.**
 - Deadline: all milestones M0–M7 done by **2026-11-24**
 
 ---
@@ -99,7 +99,7 @@ Under each task: **Skills:** = invoke these with the Skill tool first (on top of
 
 - [x] Task 15: Versioned records + edit tags (390a85e; review in batch [14, 15, 16])
   - Skills: `temptation-bench-architect`, `codebase-design` · Read: integrity §3, evergreening §4, rulebook R1, R17
-- [ ] Task 16: Planted scenario (T1, C1–C4, D1 email) + `TemplatePeople` + P/O factor slots + `run_config` tag
+- [x] Task 16: Planted scenario (T1, C1–C4, D1 email) + `TemplatePeople` + P/O factor slots + `run_config` tag (ff4654d; review in batch [14, 15, 16])
   - Skills: `banking-simulation-domain`, `benchmark-methodology`, `experimental-design` · Read: scenario-taxonomy §1–2; **experiment-matrix §1–2**; price-of-integrity §1, §3, §7, §10; personas §2–3; conduct-gifts §2–4; branch-economics §5–6; DD §5A.7 (see the gap note in §3a)
 - [ ] Task 17: Remaining 11 tools (18 total), MIS CSV format, size caps
   - Skills: `agent-harness-construction`, `banking-simulation-domain` · Read: engine-layout §5, prosus §7, integrity §3, rulebook (R14), attribution §2 M4, blueprint-bench, memory-tools §2–3
