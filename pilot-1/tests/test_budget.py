@@ -717,18 +717,59 @@ def test_dry_run_prints_the_exposure(tmp_path, monkeypatch, capsys, env, ledger)
 
 
 def test_gfree_exposure_is_counted_in_free_tier_tokens(tmp_path, monkeypatch, capsys, env, ledger):
-    """G-free has a $0 cap: its worst case is measured in free-tier tokens. 1 run x 2
-    attempts x token_limit must fit the 1M tokens/day free tier (spec §6 G-free)."""
+    """G-free has a $0 cap: its worst case is measured in free-tier tokens. It runs with no
+    automatic rerun (round 1b ruling), so 1 run x 800k x 1 attempt fits the 1M tokens/day
+    free tier and spec §6's 800k passes; 1.2M is refused."""
     _no_eval(monkeypatch)
     kw = dict(log_root=tmp_path, env_path=env, ledger_path=ledger)
-    with pytest.raises(BudgetError, match="free tier"):
-        run.run_step("gfree", 0.0, token_limit=800_000, transport=never_called(), **kw)
-    run.run_step("gfree", 0.0, token_limit=500_000, dry_run=True, transport=credits(), **kw)
-    run.run_step("gfree", 0.0, dry_run=True, transport=credits(), **kw)  # default fits
+    run.run_step("gfree", 0.0, token_limit=800_000, dry_run=True, transport=credits(), **kw)
     out = capsys.readouterr().out
-    assert "token_limit:       500000 (free-tier share)" in out
-    assert "1000000 of 1000000 free-tier tokens" in out
+    assert "800000 of 1000000 free-tier tokens: 1 runs x 800000 tokens x 1 attempts" in out
+    with pytest.raises(BudgetError, match="free tier"):
+        run.run_step("gfree", 0.0, token_limit=1_200_000, transport=never_called(), **kw)
     assert ledger.read_text() == ""
+
+
+def test_gfree_cli_token_limit_800k_passes_and_1200k_refused(
+    tmp_path, monkeypatch, capsys, env, ledger
+):
+    _no_eval(monkeypatch)
+    kw = dict(log_root=tmp_path, env_path=env, ledger_path=ledger, transport=credits())
+    base = ["--step", "gfree", "--estimate", "0", "--dry-run", "--token-limit"]
+    assert run.main([*base, "800000"], **kw) == 0
+    assert run.main([*base, "1200000"], **kw) != 0
+    assert "free tier" in capsys.readouterr().err
+
+
+def test_gfree_default_token_limit_is_spec_800k(tmp_path, monkeypatch, capsys, env, ledger):
+    _no_eval(monkeypatch)
+    ledger.write_text(_line(actual=0.3, runs=1, total_tokens=300_000))  # a smoke never sets it
+    run.run_step(
+        "gfree",
+        0.0,
+        dry_run=True,
+        log_root=tmp_path,
+        env_path=env,
+        ledger_path=ledger,
+        transport=credits(),
+    )
+    assert "token_limit:       800000 (step default)" in capsys.readouterr().out
+
+
+def test_gfree_launches_without_retry_and_smoke_with_one(tmp_path, monkeypatch):
+    seen: dict[str, int] = {}
+
+    def fake_eval(*a, **k):
+        seen[k["log_dir"]] = k["retry_on_error"]
+        return []
+
+    monkeypatch.setattr(run, "inspect_eval", fake_eval)
+    monkeypatch.setattr("temptation_bench.harness.task.temptation_bench", lambda **k: None)
+    for step in ("gfree", "smoke"):
+        plan = run.STEPS[step].plan
+        run.launch_task_eval(run.Ctx(step, plan, tmp_path / step, 0.5, 800_000))
+    assert seen == {str(tmp_path / "gfree"): 0, str(tmp_path / "smoke"): 1}
+    assert run.STEPS["gfree"].plan.attempts == 1 and run.STEPS["smoke"].plan.attempts == 2
 
 
 # ---- R25-5: default token limit from the smoke ---------------------------------------------

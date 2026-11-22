@@ -13,16 +13,19 @@ even if the eval raised, because money may have been spent).
   if it is over the step cap, if spent + exposure is over the stop line, or if it is unknown
   (no cost limit: never treated as \\$0). A free-tier step (G-free, cap \\$0) is bounded in
   tokens instead: runs x token limit x (1 + retries) must fit the free tier (1M tokens/day).
-- `--token-limit` defaults (R25-5): G-free its free-tier share; otherwise, once a smoke is in
+- `--token-limit` defaults (R25-5): the step's own default (G-free: 800k, spec §6); otherwise,
+  once a smoke is in
   the ledger, 2 x T_run, the mean tokens per smoke run (the ledger's `total_tokens`, which
   is Inspect's `total_tokens`: input incl. cache reads/writes + output, the same quantity
   Inspect's token limit meters); before any smoke, none.
 - One model per eval (X-1): run ids, JSONL paths and `harness.json` are per run, not per
   model, so the runner refuses a plan with more than one model.
-- `retry_on_error=1`: a sample that ends in error is rerun once with the same seed and dose
-  (DD §13A). The rerun keeps the cell cache, so its replayed turns are free. The failed
-  attempt stays in the `.eval` (`error_retries`) and its billed calls are in the ledger.
-  The estimate passed in must cover that rerun: it is inside the same step cap.
+- G-free runs with `retry_on_error=0` (a connectivity check, rerun by hand; round 1b ruling),
+  so 1 run x 800k x 1 attempt fits its free tier.
+- `retry_on_error=1` (every other step): a sample that ends in error is rerun once with the
+  same seed and dose (DD §13A). The rerun keeps the cell cache, so its replayed turns are
+  free. The failed attempt stays in the `.eval` (`error_retries`) and its billed calls are
+  in the ledger. The estimate passed in must cover that rerun: it is inside the same cap.
 - The eval process itself loads `.env` (Inspect does this). Nothing here exports it."""
 
 from __future__ import annotations
@@ -66,6 +69,13 @@ class Plan:
     people: str = "template"
     max_samples: int = 1
     free_tier_tokens: int | None = None  # set: a free-tier step, bounded in tokens (R25-2)
+    retry_on_error: int = RETRY_ON_ERROR  # automatic same-seed reruns of an errored sample
+    token_limit: int | None = None  # the step's default token limit (`--token-limit` wins)
+
+    @property
+    def attempts(self) -> int:
+        """Worst-case runs of one sample: the attempt plus its automatic reruns."""
+        return 1 + self.retry_on_error
 
     @property
     def runs(self) -> int:
@@ -95,9 +105,6 @@ class Step:
     @property
     def built(self) -> bool:
         return self.launch is not None and self.plan is not None
-
-
-ATTEMPTS = 1 + RETRY_ON_ERROR  # a sample may run twice: the attempt and its one rerun
 
 
 def one_model(plan: Plan, model: Model | None = None) -> str | Model:
@@ -133,7 +140,7 @@ def launch_task_eval(ctx: Ctx) -> None:
         model=model,
         log_dir=str(ctx.log_dir),
         max_samples=p.max_samples,
-        retry_on_error=RETRY_ON_ERROR,
+        retry_on_error=p.retry_on_error,
         cost_limit=ctx.sample_cost_limit,
         **kw,
     )
@@ -141,13 +148,23 @@ def launch_task_eval(ctx: Ctx) -> None:
 
 HAIKU = "anthropic/claude-haiku-5-5"
 FREE_TIER = 1_000_000  # Luna free tier: 1M tokens/day (spec §6 G-free)
+GFREE_TOKEN_LIMIT = 800_000  # spec §6 G-free
 LUNA = "openai-api/xpl/gpt-6-luna"
 
 # The dispatch table. Later tasks fill in the refusing entries (plan Tasks 26, 29-31, 34).
 STEPS: dict[str, Step] = {
     # Task 29: free Luna, D1-D3, seed 1001, dose $30k, one sample at a time
     "gfree": Step(
-        Plan((LUNA,), "gfree", "1001", "3000000", max_samples=1, free_tier_tokens=FREE_TIER),
+        Plan(
+            (LUNA,),
+            "gfree",
+            "1001",
+            "3000000",
+            max_samples=1,
+            free_tier_tokens=FREE_TIER,
+            retry_on_error=0,  # round 1b: no automatic rerun; spec §6 keeps 800k tokens
+            token_limit=GFREE_TOKEN_LIMIT,
+        ),
         launch_task_eval,
     ),
     "route_check": Step(None, None, "the route-check script (2 Haiku calls + 1 qwen) is Task 30"),
@@ -171,8 +188,8 @@ def default_sample_cost_limit(step: str, ledger_path: Path | None = None) -> flo
         cap = STEP_CAPS[step]
         if cap <= 0 or (plan is not None and plan.free_tier_tokens is not None):
             return SMOKE_SAMPLE_COST_LIMIT
-        runs = plan.runs if plan is not None else 1
-        return min(SMOKE_SAMPLE_COST_LIMIT, cap / (runs * ATTEMPTS))
+        runs, attempts = (plan.runs, plan.attempts) if plan is not None else (1, 1 + RETRY_ON_ERROR)
+        return min(SMOKE_SAMPLE_COST_LIMIT, cap / (runs * attempts))
     smokes = [
         e
         for e in budget.ledger_entries(ledger_path=ledger_path)
@@ -205,7 +222,7 @@ def exposure(plan: Plan, sample_cost_limit: float | None) -> float | None:
     without a cost limit."""
     if sample_cost_limit is None:
         return None
-    return plan.runs * sample_cost_limit * ATTEMPTS
+    return plan.runs * sample_cost_limit * plan.attempts
 
 
 def check_exposure(
@@ -221,8 +238,8 @@ def check_exposure(
         free = plan.free_tier_tokens
         if token_limit is None:
             raise BudgetError(f"{step} needs a token limit: its free-tier worst case is unknown")
-        tokens = plan.runs * token_limit * ATTEMPTS
-        how = f"{plan.runs} runs x {token_limit} tokens x {ATTEMPTS} attempts"
+        tokens = plan.runs * token_limit * plan.attempts
+        how = f"{plan.runs} runs x {token_limit} tokens x {plan.attempts} attempts"
         if tokens > free:
             raise BudgetError(
                 f"{step} worst case {tokens} tokens ({how}) is over the free tier of {free} "
@@ -232,7 +249,7 @@ def check_exposure(
     e = exposure(plan, sample_cost_limit)
     if e is None:
         raise BudgetError(f"{step} worst-case exposure is unknown (no per-sample cost limit)")
-    how = f"{plan.runs} runs x ${sample_cost_limit:.4f} x {ATTEMPTS} attempts"
+    how = f"{plan.runs} runs x ${sample_cost_limit:.4f} x {plan.attempts} attempts"
     cap = STEP_CAPS[step]
     if e > cap:
         raise BudgetError(
@@ -266,7 +283,7 @@ def _plan_text(
         f"seeds x doses:     {p.seeds} x {p.doses} = {p.runs} cells",
         f"runs:              {p.runs}",
         f"max_samples:       {p.max_samples}",
-        f"retry_on_error:    {RETRY_ON_ERROR} (same seed and dose; failure kept in the log)",
+        f"retry_on_error:    {p.retry_on_error} (same seed and dose; failure kept in the log)",
         f"sample cost_limit: ${ctx.sample_cost_limit:.4f}",
         f"token_limit:       {token}",
         f"exposure:          {exposure_line}",
@@ -307,9 +324,9 @@ def run_step(
     if token_limit is not None and token_limit <= 0:
         raise RunnerError("the token limit must be > 0")
     token_source = "--token-limit"
-    if token_limit is None and spec.plan.free_tier_tokens is not None:
-        token_limit = spec.plan.free_tier_tokens // (spec.plan.runs * ATTEMPTS)
-        token_source = "free-tier share"
+    if token_limit is None and spec.plan.token_limit is not None:
+        token_limit = spec.plan.token_limit
+        token_source = "step default"
     elif token_limit is None:
         token_limit = default_token_limit(ledger_path)
         token_source = "2 x smoke mean"
