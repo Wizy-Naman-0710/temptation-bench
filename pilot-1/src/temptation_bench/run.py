@@ -56,6 +56,14 @@ even if the eval raised, because money may have been spent).
   line; it is re-checked before Luna with what Haiku spent. An eval that raises stops the
   step. `--model <slug>` runs just one of the two. Each line's `estimate` is the step
   estimate's share by runs. people=prose refuses (no network) until the pregen files exist.
+- `--step full_run` (Task 34): Haiku, variant `full` (D1-D30), seed 1001, dose 3_000_000,
+  people = the variant's (template), one eval like the smoke (per-cell cache on, logs in
+  `logs/paid/full_run-<stamp>/`, ledger `runs` = 1). Its own defaults (controller rulings):
+  per-sample cost limit \\$0.50 (1 run x \\$0.50 x 2 attempts = \\$1.00 <= the \\$1.50 cap)
+  and token limit 2,605,728 = 2 x 3 x the smoke's 434,288 tokens per run (the window's
+  2 x smoke mean would stop a 30-day run early). Both flags override; exposure is still
+  checked, and earlier full_run spend counts against its cap. The time limit (10800 s) and
+  the turn caps (600 per run, 40 per day) come from `configs/variants/full.toml`.
 
 Runbook: rerunning a deterministic harness error (Task 31; nothing new built for it).
 - What exists: `retry_on_error=1` (one automatic same-seed rerun inside the eval) and the
@@ -102,7 +110,8 @@ from .budget import STEP_CAPS, STOP_LINE, BudgetError
 LOG_ROOT = budget.ROOT / "logs" / "paid"  # gitignored
 SMOKE_SAMPLE_COST_LIMIT = 1.00  # spec §7.3: the smoke itself (and steps before it) use $1
 RETRY_ON_ERROR = 1  # DD §13A: one same-seed rerun; failures stay in the log
-NEEDS_SMOKE = {"mini_batch", "full_run"}  # their per-sample limit comes from the smoke
+NEEDS_SMOKE = {"mini_batch"}  # its per-sample limit comes from the smoke
+STEP_SPEND_COUNTS = {"mini_batch", "full_run"}  # earlier ledger lines of the step count too
 
 
 class RunnerError(RuntimeError):
@@ -135,6 +144,8 @@ class Plan:
     aux_models: tuple[str, ...] = ()  # other models the step calls (route check: people)
     samples: int | None = None  # set: the eval's sample count (pregen: one per text)
     uses_token_limit: bool = True  # False: the step's task takes no token limit (pregen)
+    sample_cost_limit: float | None = None  # the step's default per-sample $ limit (full_run)
+    token_note: str = ""  # where the step's default token limit comes from (dry-run line)
 
     @property
     def attempts(self) -> int:
@@ -338,6 +349,12 @@ PEOPLE = "openai-api/xpl/mistral-small-3.2-24b-instruct"
 FREE_TIER = 1_000_000  # Luna free tier: 1M tokens/day (spec §6 G-free)
 GFREE_TOKEN_LIMIT = 800_000  # spec §6 G-free
 LUNA = "openai-api/xpl/gpt-6-luna"
+# full_run (Task 34 controller rulings): 1 run x $0.50 x 2 attempts = $1.00 <= the $1.50 cap.
+# Token limit: 2 x (3 x the smoke's measured tokens per run), since full mode has ~3x the
+# window's turns; the window's "2 x smoke mean" default (868,576) would cut it short.
+FULL_SAMPLE_COST_LIMIT = 0.50
+SMOKE_TOKENS_PER_RUN = 434_288  # the smoke ledger line's total_tokens / runs (Task 30)
+FULL_TOKEN_LIMIT = 2 * 3 * SMOKE_TOKENS_PER_RUN  # 2,605,728
 
 
 def _pregen_samples(seeds: str) -> int:
@@ -398,17 +415,33 @@ STEPS: dict[str, Step] = {
         launch_task_eval,
         split_models=True,
     ),
-    "full_run": Step(None, None, "set up in Task 34 (D11-D30 events and audit are built)"),
+    # Task 34: Haiku, full horizon (D1-D30), seed 1001, dose $30k (spec §7.2 full-horizon look)
+    "full_run": Step(
+        Plan(
+            (HAIKU,),
+            "full",
+            "1001",
+            "3000000",
+            max_samples=1,
+            sample_cost_limit=FULL_SAMPLE_COST_LIMIT,
+            token_limit=FULL_TOKEN_LIMIT,
+            token_note=f"2 x 3 x the smoke's {SMOKE_TOKENS_PER_RUN} tokens per run, full mode",
+        ),
+        launch_task_eval,
+    ),
 }
 
 
 def default_sample_cost_limit(step: str, ledger_path: Path | None = None) -> float:
     """2 x the latest smoke's actual cost per run (spec D9). For the smoke and earlier: $1,
     lowered to cap / (runs x attempts) so the worst case fits the step cap (smoke: $0.50).
-    A free-tier step keeps $1: its bound is the free-tier token count."""
+    A free-tier step keeps $1: its bound is the free-tier token count. A step with its own
+    `Plan.sample_cost_limit` (full_run: $0.50, controller ruling) uses that."""
+    spec = STEPS.get(step)
+    plan = spec.plan if spec is not None else None
+    if plan is not None and plan.sample_cost_limit is not None:
+        return plan.sample_cost_limit
     if step not in NEEDS_SMOKE:
-        spec = STEPS.get(step)
-        plan = spec.plan if spec is not None else None
         cap = STEP_CAPS[step]
         if cap <= 0 or (plan is not None and plan.free_tier_tokens is not None):
             return SMOKE_SAMPLE_COST_LIMIT
@@ -545,6 +578,7 @@ def _plan_text(
     balance: float,
     exposure_line: str,
     token_source: str,
+    cost_source: str = "",
 ) -> str:
     p = ctx.plan
     models = [str(one_model(p, ctx.model)), *(f"{m} (people)" for m in p.aux_models)]
@@ -558,6 +592,7 @@ def _plan_text(
     else:
         cells = [
             f"variant:           {p.variant} (people={p.people})",
+            *_variant_lines(step, p),
             f"seeds x doses:     {p.seeds} x {p.doses} = {p.runs} cells",
             f"runs:              {p.runs}",
         ]
@@ -574,8 +609,10 @@ def _plan_text(
             if p.retry_on_error
             else "(no automatic rerun)"
         ),
-        f"sample cost_limit: ${ctx.sample_cost_limit:.4f}",
+        f"sample cost_limit: ${ctx.sample_cost_limit:.4f}"
+        + (f" ({cost_source})" if cost_source else ""),
         f"token_limit:       {token}",
+        *_harness_lines(step, p),
         f"exposure:          {exposure_line}",
         f"estimate / cap:    ${estimate:.4f} / ${STEP_CAPS[step]:.2f}",
         f"spent / stop line: ${spent:.4f} / ${STOP_LINE:.2f}",
@@ -593,6 +630,43 @@ def _plan_text(
         lines.append("local cache:       off (every call asks the model)")
         lines.append(f"writes:            {people_prose_dir()}/seed_<n>.json")
     return "\n".join(lines)
+
+
+def _is_task_eval(step: str) -> bool:
+    spec = STEPS.get(step)
+    return spec is not None and spec.launch is launch_task_eval
+
+
+def _variant_lines(step: str, p: Plan) -> list[str]:
+    """The days a `temptation_bench` eval covers, and (prose past D10) the template note."""
+    if not _is_task_eval(step):
+        return []
+    from .engine.config import load_config
+    from .harness.pregen_people import PREGEN_DAYS
+
+    last = int(load_config(p.variant).last_day)
+    lines = [f"days:              D1-D{last}"]
+    if p.people == "prose" and last > PREGEN_DAYS:
+        lines.append(
+            f"people note:       prose covers D1-D{PREGEN_DAYS} only; the "
+            f"D{PREGEN_DAYS + 1}-D{last} people messages use the template"
+        )
+    return lines
+
+
+def _harness_lines(step: str, p: Plan) -> list[str]:
+    """The variant's harness limits and the cache mode of a `temptation_bench` eval."""
+    if not _is_task_eval(step):
+        return []
+    from .engine.config import load_config
+
+    h = load_config(p.variant).harness
+    return [
+        f"time_limit:        {int(h['time_limit_s'])} s (variant {p.variant})",
+        f"turn caps:         {int(h['turn_cap'])} per run, {int(h['day_turn_cap'])} per day "
+        f"(variant {p.variant})",
+        "local cache:       on, per-cell scope (as the smoke)",
+    ]
 
 
 def check_prose(plan: Plan) -> None:
@@ -661,8 +735,16 @@ def run_step(
     for p in evals:
         one_model(p, model)  # X-1: refuse before any network call or ledger line
     check_prose(plan)
+    cost_source = "--sample-cost-limit"
     if sample_cost_limit is None:
         sample_cost_limit = default_sample_cost_limit(step, ledger_path)
+        cost_source = (
+            "step default"
+            if plan.sample_cost_limit is not None
+            else "2 x smoke cost per run"
+            if step in NEEDS_SMOKE
+            else "default"
+        )
     if not (math.isfinite(sample_cost_limit) and sample_cost_limit > 0):
         raise RunnerError("the sample cost limit must be a finite number > 0")
     if token_limit is not None and token_limit <= 0:
@@ -674,7 +756,7 @@ def run_step(
         token_limit = None
     elif token_limit is None and plan.token_limit is not None:
         token_limit = plan.token_limit
-        token_source = "step default"
+        token_source = f"step default: {plan.token_note}" if plan.token_note else "step default"
     elif token_limit is None:
         token_limit = default_token_limit(ledger_path)
         token_source = "2 x smoke mean"
@@ -684,7 +766,7 @@ def run_step(
         spent = budget.spent(ledger_path=ledger_path)  # refuses on a missing/bad ledger
         if spec.exposure is not None:
             return check_dollar_exposure(step, *spec.exposure(), spent)
-        prior = step_spent(step, ledger_path) if step in NEEDS_SMOKE else 0.0
+        prior = step_spent(step, ledger_path) if step in STEP_SPEND_COUNTS else 0.0
         return check_exposure(step, todo, sample_cost_limit, token_limit, spent, prior)
 
     exposure_line = check(plan)
@@ -716,6 +798,7 @@ def run_step(
             balance,
             line,
             token_source,
+            cost_source,
         )
 
     head = "DRY RUN (no eval launched)\n" if dry_run else ""

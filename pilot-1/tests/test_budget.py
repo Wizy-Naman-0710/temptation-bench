@@ -473,8 +473,10 @@ def test_runner_reruns_failed_once_and_keeps_failure(tmp_path, monkeypatch, env,
     assert log.eval.config.cost_limit == 0.50  # smoke: $1 cap / (1 run x 2 attempts)
 
 
-def test_runner_refuses_unbuilt_steps_without_network(tmp_path, env, ledger):
-    for step in ("full_run",):  # route_check: Task 30; pregen, mini_batch: Task 31
+def test_runner_refuses_unbuilt_steps_without_network(tmp_path, monkeypatch, env, ledger):
+    # every step is built since Task 34; an unbuilt entry must still refuse before any call
+    monkeypatch.setitem(run.STEPS, "full_run", run.Step(None, None, "not set up"))
+    for step in ("full_run",):
         with pytest.raises(run.RunnerError, match="not built"):
             run.run_step(
                 step,
@@ -496,6 +498,7 @@ def test_dispatch_table_covers_every_step():
         "smoke",
         "pregen",
         "mini_batch",
+        "full_run",
     }
 
 
@@ -555,7 +558,7 @@ def test_sample_cost_limit_defaults(ledger):
         run.default_sample_cost_limit("mini_batch", ledger)
     ledger.write_text(_line(step="smoke", actual=0.2, runs=1))
     assert run.default_sample_cost_limit("mini_batch", ledger) == pytest.approx(0.4)
-    assert run.default_sample_cost_limit("full_run", ledger) == pytest.approx(0.4)
+    assert run.default_sample_cost_limit("full_run", ledger) == 0.50  # its own default (Task 34)
 
 
 # ---- retry cache scope ---------------------------------------------------------------------
