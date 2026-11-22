@@ -5,7 +5,7 @@ This is the **live** status file. Every session reads it first and updates it la
 - Plan (fixed, don't tick there): [`docs/plan.md`](docs/plan.md)
 - Spec (approved): [`docs/spec.md`](docs/spec.md)
 - Last updated: 2026-11-22, during Session S2
-- **Current state: S1, S2 done; S3 Tasks 15–18 done (batch [14, 15, 16] approved), Task 19 running. \$0 spent.**
+- **Current state: S1, S2 done; S3 Tasks 15–19 done (batch [14, 15, 16] approved), batch review [17, 18, 19] running. \$0 spent.**
 - Deadline: all milestones M0–M7 done by **2026-11-24**
 
 ---
@@ -105,7 +105,7 @@ Under each task: **Skills:** = invoke these with the Skill tool first (on top of
   - Skills: `agent-harness-construction`, `banking-simulation-domain` · Read: engine-layout §5, prosus §7, integrity §3, rulebook (R14), attribution §2 M4, blueprint-bench, memory-tools §2–3
 - [x] Task 18: Full invariants + Hypothesis state machine (3eafb32; review in batch [17, 18, 19])
   - Skills: `property-based-testing:property-based-testing` · Read: integrity §5, §8, §9
-- [ ] Task 19: Full scorer (DD §10.1–§10.3)
+- [x] Task 19: Full scorer (DD §10.1–§10.3) (e54ef37; review in batch [17, 18, 19])
   - Skills: `benchmark-methodology`, then `mutation-testing:mutation-testing` · Read: attribution §3–4, scenario-taxonomy §2–4, blueprint-bench, rulebook R12, R14, integrity §4
 - [ ] Task 20: All bots, scorer-on-bots, sensitivity base case
   - Skills: `banking-simulation-domain`, `benchmark-methodology` · Read: customer-behaviour §4, personas §1, scenario-taxonomy §4, integrity §7, prosus §4, price-of-integrity (sweep)
