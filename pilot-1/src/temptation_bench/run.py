@@ -10,7 +10,9 @@ even if the eval raised, because money may have been spent).
   from the ledger (spec D9); the smoke and the steps before it use \\$1.00, lowered so the
   worst case fits the step cap (the smoke: \\$0.50).
 - Worst-case exposure (R25-2): runs x sample cost limit x (1 + retries). A paid step refuses
-  if it is over the step cap, if spent + exposure is over the stop line, or if it is unknown
+  if it is over the step cap, if the step's earlier ledger spend + exposure is over the step
+  cap (F-7: every paid step; not gfree, whose cap is \\$0 and which is bounded in tokens),
+  if spent + exposure is over the stop line, or if it is unknown
   (no cost limit: never treated as \\$0). A free-tier step (G-free, cap \\$0) is bounded in
   tokens instead: runs x token limit x (1 + retries) must fit the free tier (1M tokens/day).
 - `--token-limit` defaults (R25-5): the step's own default (G-free: 800k, spec §6); otherwise,
@@ -61,7 +63,9 @@ even if the eval raised, because money may have been spent).
   `logs/paid/full_run-<stamp>/`, ledger `runs` = 1). Its own defaults (controller rulings):
   per-sample cost limit \\$0.50 (1 run x \\$0.50 x 2 attempts = \\$1.00 <= the \\$1.50 cap)
   and token limit 2,605,728 = 2 x 3 x the smoke's 434,288 tokens per run (the window's
-  2 x smoke mean would stop a 30-day run early). Both flags override; exposure is still
+  2 x smoke mean would stop a 30-day run early). That limit is a fixed design value set
+  from the Task 30 smoke (a literal, not read from the ledger; PROGRESS §8): re-derive it
+  for another model or a prose arm. Both flags override; exposure is still
   checked, and earlier full_run spend counts against its cap. The time limit (10800 s) and
   the turn caps (600 per run, 40 per day) come from `configs/variants/full.toml`.
 
@@ -111,7 +115,11 @@ LOG_ROOT = budget.ROOT / "logs" / "paid"  # gitignored
 SMOKE_SAMPLE_COST_LIMIT = 1.00  # spec §7.3: the smoke itself (and steps before it) use $1
 RETRY_ON_ERROR = 1  # DD §13A: one same-seed rerun; failures stay in the log
 NEEDS_SMOKE = {"mini_batch"}  # its per-sample limit comes from the smoke
-STEP_SPEND_COUNTS = {"mini_batch", "full_run"}  # earlier ledger lines of the step count too
+# Earlier ledger lines of the step count against its cap too (F-7: every paid step, so a
+# rerun cannot exceed the step cap). Not gfree: its cap is $0 and the ledger already holds
+# its $0.0038 at list price, so a cumulative check would refuse it forever; its bound is
+# the free-tier token count (check_exposure).
+STEP_SPEND_COUNTS = {"smoke", "route_check", "pregen", "mini_batch", "full_run"}
 
 
 class RunnerError(RuntimeError):
@@ -350,8 +358,10 @@ FREE_TIER = 1_000_000  # Luna free tier: 1M tokens/day (spec §6 G-free)
 GFREE_TOKEN_LIMIT = 800_000  # spec §6 G-free
 LUNA = "openai-api/xpl/gpt-6-luna"
 # full_run (Task 34 controller rulings): 1 run x $0.50 x 2 attempts = $1.00 <= the $1.50 cap.
-# Token limit: 2 x (3 x the smoke's measured tokens per run), since full mode has ~3x the
-# window's turns; the window's "2 x smoke mean" default (868,576) would cut it short.
+# Token limit: a fixed design value from the Task 30 smoke (PROGRESS §8), not read from the
+# ledger: 2 x (3 x that smoke's measured tokens per run), since full mode has ~3x the
+# window's turns; the window's "2 x smoke mean" default (868,576) would cut it short. It
+# fits Haiku, template people; re-derive it for another model or a prose arm.
 FULL_SAMPLE_COST_LIMIT = 0.50
 SMOKE_TOKENS_PER_RUN = 434_288  # the smoke ledger line's total_tokens / runs (Task 30)
 FULL_TOKEN_LIMIT = 2 * 3 * SMOKE_TOKENS_PER_RUN  # 2,605,728
@@ -502,8 +512,8 @@ def check_exposure(
     prior: float = 0.0,
 ) -> str:
     """Refuse (BudgetError) a worst case the step cap or the stop line cannot hold (R25-2).
-    `prior` = what earlier evals of this step already spent (`step_spent`; mini_batch and
-    full_run): it counts against the step cap too. Returns the exposure line."""
+    `prior` = what earlier evals of this step already spent (`step_spent`; every step in
+    STEP_SPEND_COUNTS): it counts against the step cap too. Returns the exposure line."""
     if plan.free_tier_tokens is not None:  # G-free: $0 only while inside the free tier
         free = plan.free_tier_tokens
         if token_limit is None:
@@ -553,14 +563,20 @@ def check_exposure(
     return f"${e:.4f} ({how})"
 
 
-def check_dollar_exposure(step: str, e: float, how: str, spent: float) -> str:
-    """A step's own $ worst case must fit its cap and the stop line (R25-2)."""
+def check_dollar_exposure(step: str, e: float, how: str, spent: float, prior: float = 0.0) -> str:
+    """A step's own $ worst case must fit its cap and the stop line (R25-2). `prior` = what
+    earlier evals of this step already spent (`step_spent`): it counts against the cap."""
     cap = STEP_CAPS[step]
     if not math.isfinite(e) or e < 0:
         raise BudgetError(f"{step} worst-case exposure is unknown")
     if e > cap:
         raise BudgetError(
             f"{step} worst-case exposure ${e:.4f} ({how}) is over the {step} cap ${cap:.2f}"
+        )
+    if prior + e > cap:
+        raise BudgetError(
+            f"{step} already spent ${prior:.4f} + worst-case exposure ${e:.4f} ({how}) is over "
+            f"the {step} cap ${cap:.2f} (needs owner OK)"
         )
     if spent + e > STOP_LINE:
         raise BudgetError(
@@ -764,9 +780,9 @@ def run_step(
 
     def check(todo: Plan) -> str:  # local: the step cap and the stop line (R25-2)
         spent = budget.spent(ledger_path=ledger_path)  # refuses on a missing/bad ledger
-        if spec.exposure is not None:
-            return check_dollar_exposure(step, *spec.exposure(), spent)
         prior = step_spent(step, ledger_path) if step in STEP_SPEND_COUNTS else 0.0
+        if spec.exposure is not None:
+            return check_dollar_exposure(step, *spec.exposure(), spent, prior)
         return check_exposure(step, todo, sample_cost_limit, token_limit, spent, prior)
 
     exposure_line = check(plan)

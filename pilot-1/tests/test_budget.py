@@ -657,7 +657,7 @@ def test_exposure_refuses_over_step_cap(tmp_path, monkeypatch, env, ledger):
 
 def test_exposure_refuses_over_stop_line(tmp_path, monkeypatch, capsys, env, ledger):
     _no_eval(monkeypatch)
-    ledger.write_text(_line(actual=8.80))
+    ledger.write_text(_line(step="mini_batch", actual=8.80))  # not smoke: its cap is cumulative
     with pytest.raises(BudgetError, match="stop line"):
         run.run_step(
             "smoke",
@@ -784,6 +784,7 @@ def test_runner_defaults_the_token_limit_after_a_smoke(tmp_path, monkeypatch, ca
     _no_eval(monkeypatch)
     ledger.write_text(_line(actual=0.3, runs=1, total_tokens=300_000))
     kw = dict(log_root=tmp_path, env_path=env, ledger_path=ledger, transport=credits())
+    kw["sample_cost_limit"] = 0.35  # F-7: the $0.30 smoke spent counts: 0.30 + 0.70 <= $1
     run.run_step("smoke", 0.3, dry_run=True, **kw)
     assert "token_limit:       600000 (2 x smoke mean)" in capsys.readouterr().out
     run.run_step("smoke", 0.3, token_limit=123_456, dry_run=True, **kw)  # the flag wins
@@ -1048,3 +1049,35 @@ def test_runner_prerequisite_error_at_start_records_zero(tmp_path, monkeypatch, 
         )
     entry = json.loads(ledger.read_text().splitlines()[-1])
     assert entry["actual"] == 0.0 and "PrerequisiteError" in entry["error"]
+
+
+# ---- F-7: every paid step's cap is cumulative (earlier ledger lines of the step count) ----
+
+
+def test_second_smoke_is_refused_when_prior_spend_plus_exposure_passes_the_cap(
+    tmp_path, monkeypatch, env, ledger
+):
+    _no_eval(monkeypatch)
+    ledger.write_text(_line(step="smoke", actual=0.02, runs=1))  # 0.02 + 1.00 > 1.00
+    kw = dict(log_root=tmp_path, env_path=env, ledger_path=ledger, transport=never_called())
+    with pytest.raises(BudgetError, match="already spent"):
+        run.run_step("smoke", 0.3, dry_run=True, **kw)
+    # a lower per-sample limit that fits what is left of the cap passes
+    run.run_step(
+        "smoke", 0.3, sample_cost_limit=0.49, dry_run=True, **{**kw, "transport": credits()}
+    )
+
+
+@pytest.mark.parametrize("step", ["route_check", "pregen"])
+def test_dollar_exposure_steps_count_earlier_spend(tmp_path, monkeypatch, env, ledger, step):
+    _no_eval(monkeypatch)
+    ledger.write_text(json.dumps({"step": step, "actual": 0.04}) + "\n")  # 0.04 + e > 0.05
+    kw = dict(log_root=tmp_path, env_path=env, ledger_path=ledger, transport=never_called())
+    with pytest.raises(BudgetError, match="already spent"):
+        run.run_step(step, 0.001, dry_run=True, **kw)
+
+
+def test_spend_counting_steps_are_every_paid_step_but_gfree():
+    # gfree's cap is $0 and the ledger already holds its $0.0038 at list price, so a
+    # cumulative check would refuse it forever; its bound is the free-tier token count.
+    assert run.STEP_SPEND_COUNTS == set(STEP_CAPS) - {"gfree"}
