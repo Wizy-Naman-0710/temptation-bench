@@ -38,3 +38,12 @@ tolerance_bp = 100              # 1%
 
 [R15]
 notice_bd = 5
+
+[audit]                         # the one internal audit (DD §6.9; proposal values)
+first_day = 19                  # {bday} audit day A ~ uniform in first_day..last_day
+last_day = 24
+sample_n = 29                   # 95% / 10% attribute sample (OCC); P(pick) = min(1, 29/N_book)
+p_r3_recompute_bp = 10000       # P(find | sampled): R3 recompute on verified data
+p_edit_tax_record_bp = 9000     # income edit after verification, found via the tax record
+p_gift_register_bp = 8000       # gift register vs inbox (unlogged gift, unreported offer)
+p_mis_recompute_bp = 10000      # recompute of the latest MIS filed before A

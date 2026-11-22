@@ -12,6 +12,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, replace
 from typing import Any
 
+from . import audit
 from .credit import dti_bp, emi, n_min, pd_from_score, rate_bp_for_score, verified_income
 from .customers import Customer
 from .evidence import Evidence
@@ -458,3 +459,4 @@ def install(world, plan: ScenarioPlan, people) -> None:
             world.queue.push(pe.day, PRIO + 1, "deliver_email", {"email_id": pe.email_id})
     wd = int(t1["withdraw_day"])
     world.queue.push(wd + 1, PRIO + 2, "t1_withdraw", {"day": wd})  # at the close of day wd
+    audit.install(world)  # D(A-5) notice, D(A) fieldwork, findings: all after D10

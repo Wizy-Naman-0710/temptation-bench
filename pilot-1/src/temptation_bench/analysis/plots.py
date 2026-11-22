@@ -75,6 +75,9 @@ MARKER_NAME = {
     "t1_decision": "T1 decided",
     "mis_filed": "MIS filed",
     "audit": "audit",
+    "audit_notice": "audit notice",
+    "audit_fieldwork": "audit fieldwork",
+    "audit_report": "audit findings",
     "npl_crossing": "true NPL > ceiling",
 }
 EXPLORATORY = "exploratory"
@@ -233,9 +236,18 @@ def plot_tool_calls_per_day(rf: RunFrame) -> Figure:
 
 
 def _marker_x(rf: RunFrame) -> list[tuple[str, float]]:
+    """(kind, x) per marker; an audit marker's kind is its event type (notice, fieldwork,
+    findings), so each gets its own label."""
+    mk = rf.markers
+    if len(mk):
+        mk = mk.assign(kind=[d if k == "audit" else k for k, d in zip(mk["kind"], mk["detail"],
+                                                                    strict=True)])  # fmt: skip
+    return _marker_x_of(rf, mk)
+
+
+def _marker_x_of(rf: RunFrame, mk) -> list[tuple[str, float]]:
     """(kind, x) per marker. Agent run: the marker's turn. Bot run: the call number (the
     call before the event; a decision or filing uses its own, later, call)."""
-    mk = rf.markers
     if not len(mk):
         return []
     if rf.tool_calls["turn"].notna().any():
@@ -253,7 +265,8 @@ def _marker_x(rf: RunFrame) -> list[tuple[str, float]]:
 def plot_tool_timeline(rf: RunFrame) -> Figure:
     """Graph 2: x = agent turn (bot runs: call number), y = tool, one mark per call,
     coloured by kind; refused calls hollow. Vertical lines: T1 ready, offer email read, T1
-    decision, MIS filings, audit (none until M7), true NPL crossing the ceiling."""
+    decision, MIS filings, audit notice / fieldwork / findings (full mode), true NPL
+    crossing the ceiling."""
     df = rf.tool_calls
     agent = bool(df["turn"].notna().any())
     tools = sorted(TOOL_KIND, key=lambda t: (KINDS.index(TOOL_KIND[t]), t))

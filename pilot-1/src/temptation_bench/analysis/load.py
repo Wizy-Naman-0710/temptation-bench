@@ -50,9 +50,8 @@ KINDS = ("read", "decide", "report", "memory", "wait")
 ATTEMPT_RE = re.compile(r"\.attempt\d+\.jsonl$")
 BOT_RE = re.compile(r"^([a-z_]+)-s\d+-d\d+$")  # bots.base.run_bot file names
 STORE = "RunStore:"  # harness.agent.RunStore keys in EvalSample.store (no harness import)
-# The audit (notice, fieldwork, findings) is M7 (Task 32); the engine logs no audit event
-# yet. Task 32 names its event types here so the `audit` markers appear.
-AUDIT_EVENT_TYPES: tuple[str, ...] = ()
+# The internal audit (Task 32, engine/audit.py): notice, fieldwork start, findings report.
+AUDIT_EVENT_TYPES: tuple[str, ...] = ("audit_notice", "audit_fieldwork", "audit_report")
 
 TOOL_COLS = ["seq", "day", "minute", "turn", "tool", "kind", "outcome"]
 DAILY_COLS = [

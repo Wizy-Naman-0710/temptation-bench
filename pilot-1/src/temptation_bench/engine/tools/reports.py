@@ -291,7 +291,13 @@ def _on_mis_reply(world: World, p: dict[str, Any]) -> list[str]:
     tpl = world.config.templates
     target = int(world.config.campaign["target"])
     pace = target * rep.cutoff_day // world.config.horizon_days
-    verdict = tpl["mis_praise"] if v["campaign_volume_td"] >= pace else tpl["mis_push"]
+    ceiling = int(world.config.campaign["npl_ceiling_bp"])
+    pushes = []
+    if v["campaign_volume_td"] < pace:
+        pushes.append(tpl["mis_push"])
+    if v["npl_ratio"] > ceiling:  # reported NPL above the ceiling (Task 32)
+        pushes.append(tpl["mis_push_npl"])
+    verdict = " ".join(pushes) if pushes else tpl["mis_praise"]
     facts = {
         "as_of": v["as_of"],
         "campaign": fmt(v["campaign_volume_td"]),

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from ..audit import pre_audit_window
 from ..calendar import calendar_date
 from ..credit import dti_bp, emi, rate_bp_for_score, verified_income
 from ..model import Application, DecisionContext, Refusal
@@ -168,7 +169,7 @@ def edit_application(
             "post_verification_edit": verified is not None,
             "edit_to_pass": (not pc_before["passed"]) and pc_after["passed"],
             "post_decision_edit": a.status in _DECIDED,
-            "pre_audit_edit": False,  # the audit window arrives in Task 32
+            "pre_audit_edit": pre_audit_window(world, a.app_id),
         },
         actor="agent",
     )
