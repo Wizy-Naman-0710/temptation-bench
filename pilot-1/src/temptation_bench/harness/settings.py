@@ -22,32 +22,43 @@ from ..engine.money import Money
 from ..engine.runtag import engine_sha
 
 NOT_SET = "not set (provider default)"
-CELL_SCOPE = "{model}|{seed}|{dose}"  # spec §7.2
+# spec §7.2 cell scope, plus the people backend (Task 26 ruling) and the variant (R24-1):
+# a prose and a template run, or a window and a full run, of one cell never share turns.
+CELL_SCOPE = "{model}|{seed}|{dose}|{people}|{variant}"
 
 
-def cell_scope(model: str, seed: int, dose: Money, retry: int = 0) -> str:
-    """`model|seed|dose`. The runner's one automatic rerun of a failed sample keeps this
-    scope (it replays the cached turns for free). A further rerun of a cell that failed
-    twice, if ever asked for, passes `retry=k` and gets a fresh scope `...|retry<k>`."""
+def cell_scope(
+    model: str, seed: int, dose: Money, people: str, variant: str, retry: int = 0
+) -> str:
+    """`model|seed|dose|people|variant`. The runner's one automatic rerun of a failed sample
+    keeps this scope (it replays the cached turns for free). A further rerun of a cell that
+    failed twice, if ever asked for, passes `retry=k` and gets a fresh scope `...|retry<k>`."""
     if retry < 0:
         raise ValueError(f"retry must be >= 0, got {retry}")
-    base = CELL_SCOPE.format(model=model, seed=seed, dose=dose)
+    base = CELL_SCOPE.format(model=model, seed=seed, dose=dose, people=people, variant=variant)
     return base if retry == 0 else f"{base}|retry{retry}"
 
 
 def generate_config(
-    model: str, seed: int, dose: Money, harness_cfg: dict[str, Any], retry: int = 0
+    model: str,
+    seed: int,
+    dose: Money,
+    harness_cfg: dict[str, Any],
+    *,
+    people: str,
+    variant: str,
+    retry: int = 0,
 ) -> GenerateConfig:
-    """The config for every generate of one cell (model, seed, dose). Temperature and seed
-    are never set. The output cache key gets a `cell` scope, so a rerun of the same cell
-    replays its turns for free, and two dose arms of one seed never share a cached turn."""
+    """The config for every generate of one cell. Temperature and seed are never set. The
+    output cache key gets a `cell` scope, so a rerun of the same cell replays its turns for
+    free, and two dose arms (or people backends, or variants) never share a cached turn."""
     return GenerateConfig(
         reasoning_effort=harness_cfg["reasoning_effort"],
         cache_prompt="auto",
         max_retries=int(harness_cfg["max_retries"]),
         cache=CachePolicy(
             expiry=harness_cfg["cache_expiry"],
-            scopes={"cell": cell_scope(model, seed, dose, retry)},
+            scopes={"cell": cell_scope(model, seed, dose, people, variant, retry)},
         ),
     )
 
@@ -78,13 +89,14 @@ def write_harness_json(
     model: str,
     cfg: WorldConfig,
     *,
+    people: str,
     tools: list[Tool] | None = None,
     limits: dict[str, Any] | None = None,
 ) -> Path:
     """Write `<run_dir>/harness.json` (atomic replace, so concurrent samples of one run
     cannot leave a half-written file). No model args or base URL: nothing secret."""
     h = cfg.harness
-    sample = generate_config(model, 0, 0, h)
+    sample = generate_config(model, 0, 0, h, people=people, variant=cfg.variant)
     assert isinstance(sample.cache, CachePolicy)
     record = {
         "model": model,
@@ -94,6 +106,7 @@ def write_harness_json(
         "config_sha256": config_sha(cfg),
         "variant": cfg.variant,
         "mode": cfg.mode,
+        "people": people,  # the run's people backend (R24-2; one per run: a task parameter)
         "last_day": cfg.last_day,
         "provider_settings": {
             "reasoning_effort": sample.reasoning_effort,

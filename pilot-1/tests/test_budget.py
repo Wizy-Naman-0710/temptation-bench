@@ -556,17 +556,18 @@ def test_sample_cost_limit_defaults(ledger):
 
 
 def test_retry_scope_suffix():
-    base = cell_scope("m", 1001, 3_000_000)
-    assert base == "m|1001|3000000"
-    assert cell_scope("m", 1001, 3_000_000, retry=0) == base
-    assert cell_scope("m", 1001, 3_000_000, retry=2) == base + "|retry2"
+    cell = {"people": "template", "variant": "window"}
+    base = cell_scope("m", 1001, 3_000_000, **cell)
+    assert base == "m|1001|3000000|template|window"
+    assert cell_scope("m", 1001, 3_000_000, **cell, retry=0) == base
+    assert cell_scope("m", 1001, 3_000_000, **cell, retry=2) == base + "|retry2"
     h = {"reasoning_effort": "low", "max_retries": 5, "cache_expiry": "1W"}
-    assert generate_config("m", 1001, 3_000_000, h).cache.scopes["cell"] == base
-    assert generate_config("m", 1001, 3_000_000, h, retry=1).cache.scopes["cell"] == (
+    assert generate_config("m", 1001, 3_000_000, h, **cell).cache.scopes["cell"] == base
+    assert generate_config("m", 1001, 3_000_000, h, **cell, retry=1).cache.scopes["cell"] == (
         base + "|retry1"
     )
     with pytest.raises(ValueError):
-        cell_scope("m", 1001, 0, retry=-1)
+        cell_scope("m", 1001, 0, **cell, retry=-1)
 
 
 def test_balance_error_keeps_no_original_exception(env, ledger):

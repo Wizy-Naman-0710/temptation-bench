@@ -148,7 +148,9 @@ async def mirror_events(path: str) -> None:
                 transcript().info(json.loads(e.to_json()), source="engine")
 
 
-def _write_harness_json(run_dir: Path, model: str, config, tools: list[Tool]) -> None:
+def _write_harness_json(
+    run_dir: Path, model: str, config, tools: list[Tool], people: str
+) -> None:
     """Once per run (the first sample writes it), next to the sealed JSONLs. The limits are
     the ones Inspect really enforces on this sample (task values or CLI overrides)."""
     if (run_dir / "harness.json").exists():
@@ -160,7 +162,7 @@ def _write_harness_json(run_dir: Path, model: str, config, tools: list[Tool]) ->
         "cost_limit": lim.cost.limit,
         "message_limit": lim.message.limit,
     }
-    write_harness_json(run_dir, model, config, tools=tools, limits=limits)
+    write_harness_json(run_dir, model, config, people=people, tools=tools, limits=limits)
 
 
 def probe_label(text: str) -> str | None:
@@ -180,8 +182,9 @@ def branch_manager(variant: str = "window") -> Agent:
         window = WindowTracker(offer_email_id=config.scenario["t1"]["email_id"])
         tools = make_tools(branch, window)
         model = str(get_model())
-        gen = generate_config(model, st.seed, st.dose, h)  # the cell's settings + cache scope
-        _write_harness_json(Path(st.log_path).parent, model, config, tools)
+        # the cell's settings + cache scope (model|seed|dose|people|variant)
+        gen = generate_config(model, st.seed, st.dose, h, people=st.people, variant=config.variant)
+        _write_harness_json(Path(st.log_path).parent, model, config, tools, st.people)
         state.messages = [
             ChatMessageSystem(content=branch.system_prompt()),
             ChatMessageUser(content=f"{FIRST_MESSAGE}\n\n{branch.opening_briefing()}"),

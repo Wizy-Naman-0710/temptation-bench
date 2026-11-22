@@ -7,6 +7,7 @@ import re
 from pathlib import Path
 
 import inspect_ai
+import pytest
 from inspect_ai import eval as inspect_eval
 from inspect_ai.event import ModelEvent
 from inspect_ai.model import CachePolicy, ModelOutput, get_model
@@ -18,6 +19,7 @@ from temptation_bench.harness.task import temptation_bench
 from tests.harness.test_e2e_mockllm import _run, tc
 
 MODEL = "anthropic/claude-haiku-5-5"
+CELL = {"people": "template", "variant": "window"}  # the cell's people backend and variant
 SCRIPT = [
     tc("wait_for_next_day"),
     tc("wait_for_next_day"),
@@ -37,15 +39,17 @@ def _harness_json(tmp_path) -> dict:
 
 
 def test_generate_config_exact_settings():
-    cfg = generate_config(MODEL, 1001, 3_000_000, load_config("window").harness)
+    cfg = generate_config(MODEL, 1001, 3_000_000, load_config("window").harness, **CELL)
     assert cfg.reasoning_effort == "low"
     assert cfg.cache_prompt == "auto"
     assert cfg.max_retries == 5
-    assert cfg.cache == CachePolicy(expiry="1W", scopes={"cell": f"{MODEL}|1001|3000000"})
+    assert cfg.cache == CachePolicy(
+        expiry="1W", scopes={"cell": f"{MODEL}|1001|3000000|template|window"}
+    )
 
 
 def test_no_seed_or_temperature_in_config():
-    cfg = generate_config(MODEL, 1001, 3_000_000, load_config("window").harness)
+    cfg = generate_config(MODEL, 1001, 3_000_000, load_config("window").harness, **CELL)
     assert cfg.seed is None
     assert cfg.temperature is None
     dumped = cfg.model_dump(exclude_none=True)
@@ -54,14 +58,39 @@ def test_no_seed_or_temperature_in_config():
 
 def test_cache_scope_differs_by_dose():
     h = load_config("window").harness
-    a = generate_config(MODEL, 1001, 0, h).cache
-    b = generate_config(MODEL, 1001, 3_000_000, h).cache
+    a = generate_config(MODEL, 1001, 0, h, **CELL).cache
+    b = generate_config(MODEL, 1001, 3_000_000, h, **CELL).cache
     assert isinstance(a, CachePolicy) and isinstance(b, CachePolicy)
     assert a.scopes != b.scopes
-    assert a.scopes == {"cell": f"{MODEL}|1001|0"}
+    assert a.scopes == {"cell": f"{MODEL}|1001|0|template|window"}
     # and by seed and by model
-    assert generate_config(MODEL, 1002, 0, h).cache.scopes != a.scopes
-    assert generate_config("mockllm/model", 1001, 0, h).cache.scopes != a.scopes
+    assert generate_config(MODEL, 1002, 0, h, **CELL).cache.scopes != a.scopes
+    assert generate_config("mockllm/model", 1001, 0, h, **CELL).cache.scopes != a.scopes
+
+
+def _scope(**kw) -> str:
+    h = load_config("window").harness
+    cache = generate_config(MODEL, 1001, 3_000_000, h, **{**CELL, **kw}).cache
+    assert isinstance(cache, CachePolicy)
+    return cache.scopes["cell"]
+
+
+def test_cache_scope_differs_by_people():
+    """Task 26 ruling: prose and template runs of one cell never share cached turns."""
+    assert _scope(people="template") != _scope(people="prose")
+    assert _scope(people="prose").endswith("|prose|window")
+
+
+def test_cache_scope_differs_by_variant():
+    """R24-1: window and full runs of one cell never share cached turns."""
+    assert _scope(variant="window") != _scope(variant="full")
+    assert _scope(variant="full").endswith("|template|full")
+
+
+def test_cell_scope_needs_people_and_variant():
+    h = load_config("window").harness
+    with pytest.raises(TypeError):
+        generate_config(MODEL, 1001, 0, h)  # no silent default backend or variant
 
 
 # --- task limits -----------------------------------------------------------------------
@@ -92,8 +121,15 @@ def test_harness_json_records_temperature_not_set_and_retries(tmp_path, monkeypa
     assert p["cache"] == {
         "expiry": "1W",
         "per_epoch": True,
-        "scopes": {"cell": "{model}|{seed}|{dose}"},
+        "scopes": {"cell": "{model}|{seed}|{dose}|{people}|{variant}"},
     }
+    assert h["people"] == "template"  # R24-2: the run's people backend
+
+
+def test_harness_json_records_a_prose_backend(tmp_path):
+    cfg = load_config("window")
+    h = json.loads(write_harness_json(tmp_path, MODEL, cfg, people="prose").read_text())
+    assert h["people"] == "prose"
 
 
 def test_harness_json_has_engine_sha_and_effort(tmp_path, monkeypatch):
@@ -118,9 +154,9 @@ def test_harness_json_has_engine_sha_and_effort(tmp_path, monkeypatch):
 
 def test_harness_json_config_sha_is_stable_and_config_sensitive(tmp_path):
     cfg = load_config("window")
-    a = json.loads(write_harness_json(tmp_path / "a", MODEL, cfg).read_text())
-    b = json.loads(write_harness_json(tmp_path / "b", MODEL, load_config("window")).read_text())
-    c = json.loads(write_harness_json(tmp_path / "c", MODEL, load_config("full")).read_text())
+    a = json.loads(write_harness_json(tmp_path / "a", MODEL, cfg, people="template").read_text())
+    b = json.loads(write_harness_json(tmp_path / "b", MODEL, load_config("window"), people="template").read_text())
+    c = json.loads(write_harness_json(tmp_path / "c", MODEL, load_config("full"), people="template").read_text())
     assert a["config_sha256"] == b["config_sha256"] != c["config_sha256"]
 
 
