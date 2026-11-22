@@ -93,12 +93,21 @@ def _run_desc(r: RunFrame) -> str:
     return _run_name(r) + (", cached replay" if cached else "")
 
 
-def _attempt_files(r: RunFrame) -> list[Path]:
-    p = r.meta.get("jsonl_path")
-    if not p:
-        return []
-    p = Path(p)
-    return sorted(p.parent.glob(f"{p.stem}.attempt*.jsonl"))
+def _attempts(batch_dir: Path, runs: list[RunFrame]) -> list[tuple[str, Path]]:
+    """Every `*.attempt<k>.jsonl` under the batch (R27-2: also those of a sample that has no
+    final JSONL), each with the run it belongs to, matched on folder and file stem."""
+    owner: dict[tuple[Path, str], str] = {}
+    for r in runs:
+        p = r.meta.get("jsonl_path") or r.meta.get("jsonl_expected")
+        if p:
+            owner[(Path(p).parent.resolve(), Path(p).stem)] = _run_name(r) + (
+                " (errored: no final JSONL)" if r.meta.get("error") else ""
+            )
+    out = []
+    for f in sorted(Path(batch_dir).rglob("*.attempt*.jsonl")):
+        stem = f.name.split(".attempt")[0]
+        out.append((owner.get((f.parent.resolve(), stem), f"(no run found) {stem}"), f))
+    return out
 
 
 def _figures(runs, bots, fig_dir: Path) -> list[tuple[str, str]]:
@@ -177,12 +186,14 @@ def build_report(
         "- A cached turn is a replay of an earlier output: 0 new tokens and \\$0. Runs with "
         "cached turns understate the cost of a fresh run.",
         "- A clipped tool output means the agent may not have seen every item.",
+        "- HP_norm uses the oracle bot as a heuristic upper anchor; values outside [0, 1] are "
+        "possible and are shown unclipped.",
         "",
     ]
 
     # --- runs ---
     errored = [r for r in runs if r.meta.get("error") or r.meta.get("sample_error")]
-    attempts = [(r, p) for r in runs for p in _attempt_files(r)]
+    attempts = _attempts(batch_dir, runs)
     md += ["## Runs", ""]
     md += _table(
         ["what", "count"],
@@ -200,9 +211,10 @@ def build_report(
     md += [
         "## T1 knowing violations per arm: ITT, then per-protocol",
         "",
-        "k/n with an exact Clopper-Pearson 95% CI. n assigned counts every run of the arm, "
-        "errored ones too; the rates use the runs that have a label (errored samples are "
-        "listed below, never dropped).",
+        "k/n with an exact Clopper-Pearson 95% CI. ITT n = n assigned: every run of the "
+        "arm. Rule: an errored or unlabelled run is counted in n and not as a knowing "
+        "violation, and the 'not labelled' column says how many there are (errored samples "
+        "are listed below, never dropped). Per-protocol uses exposed runs only.",
         "",
     ]
     rows = []
@@ -213,6 +225,7 @@ def build_report(
                 _usd_cents(a["dose"]),
                 int(a["n_assigned"]),
                 int(a["n_labelled"]),
+                f"errored: {int(a['n_errored'])}, unlabelled: {int(a['n_unlabelled'])}",
                 int(a["n_exposed"]),
                 f"{a['itt_k']}/{a['itt_n']}",
                 _rate(a["itt_k"], a["itt_n"]),
@@ -228,6 +241,7 @@ def build_report(
             "offer",
             "n assigned",
             "n labelled",
+            "not labelled (in ITT n)",
             "n exposed",
             "ITT k/n",
             "ITT rate",
@@ -402,7 +416,10 @@ def build_report(
     # --- failed ---
     md += ["## Failed attempts and errored samples", "", f"Failed attempts: {len(attempts)}", ""]
     md += (
-        _table(["run", "attempt file"], [[_run_name(r), p.name] for r, p in attempts])
+        _table(
+            ["run", "attempt file"],
+            [[who, p.relative_to(batch_dir).as_posix()] for who, p in attempts],
+        )
         if (attempts)
         else ["None."]
     )

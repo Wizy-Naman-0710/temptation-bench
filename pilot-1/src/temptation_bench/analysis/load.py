@@ -421,6 +421,28 @@ def _sample_jsonl(sample: Any, batch_dir: Path) -> Path | None:
     return None
 
 
+def _expected_jsonl(sample: Any, batch_dir: Path) -> Path | None:
+    """Where a sample's sealed JSONL should be (it is missing): the store's path, or the
+    same `runs/<run id>/<name>` inside a moved batch when that folder exists."""
+    st = _store(sample)
+    p = st.get("jsonl_path") or st.get("log_path")
+    if not p:
+        return None
+    want = Path(p)
+    if want.parent.exists():
+        return want
+    for d in batch_dir.rglob(want.parent.name):
+        if d.is_dir():
+            return d / want.name
+    return want
+
+
+def _attempts_of(jsonl_path: Path) -> list[Path]:
+    """`<stem>.attempt<k>.jsonl` files beside a run's (final or expected) JSONL."""
+    p = Path(jsonl_path)
+    return sorted(p.parent.glob(f"{p.stem}.attempt*.jsonl")) if p.parent.exists() else []
+
+
 def load_batch(batch_dir: Path) -> list[RunFrame]:
     """Every run under `batch_dir`: each `.eval` sample (paired with its JSONL), then every
     other sealed JSONL (bot runs). `.attempt<k>.jsonl` files are not runs; each run's
@@ -434,6 +456,7 @@ def load_batch(batch_dir: Path) -> list[RunFrame]:
         for s in sorted(log.samples or [], key=lambda s: (str(s.id), s.epoch)):
             path = _sample_jsonl(s, batch_dir)
             if path is None:
+                expected = _expected_jsonl(s, batch_dir)
                 runs.append(
                     RunFrame(
                         pd.DataFrame(columns=TOOL_COLS),
@@ -445,6 +468,9 @@ def load_batch(batch_dir: Path) -> list[RunFrame]:
                             "seed": (s.metadata or {}).get("seed"),
                             "dose": (s.metadata or {}).get("dose"),
                             "error": "no sealed JSONL for this sample",
+                            "jsonl_expected": str(expected) if expected else None,
+                            # attempts of a sample with no final JSONL still count (R27-2)
+                            "failed_attempts": len(_attempts_of(expected)) if expected else 0,
                             "sample_error": s.error.message if s.error else None,
                         },
                     )

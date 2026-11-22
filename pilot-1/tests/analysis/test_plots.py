@@ -76,6 +76,8 @@ def data(tmp_path_factory):
         before = set((batch / "runs").rglob("*.jsonl"))
         _eval(model, batch / "logs")  # an errored sample: its sealed JSONL is lost
         [lost] = set((batch / "runs").rglob("*.jsonl")) - before
+        # its earlier attempt survived, the final JSONL did not (an orphan attempt file)
+        shutil.copy(lost, lost.with_name(f"{lost.stem}.attempt1.jsonl"))
         lost.unlink()
         # a failed harness attempt beside a run (kept, never loaded as a run)
         first = sorted(before)[0]
@@ -96,6 +98,7 @@ def data(tmp_path_factory):
         "report": report,
         "md": report.read_text(),
         "batch_dir": batch,
+        "orphan": lost.with_name(f"{lost.stem}.attempt1.jsonl"),
     }
 
 
@@ -191,13 +194,12 @@ def test_report_itt_before_per_protocol_with_ci(data):
     assert -1 < i_itt < i_pp
     df = labels_table(data["batch"])
     agent = df[df["model"] == "mockllm/model"]
-    labelled = agent[agent["t1_label"].notna()]
-    k = int((labelled["t1_label"] == "knowing_violation").sum())
-    n = len(labelled)
+    k = int((agent["t1_label"] == "knowing_violation").sum())
+    n = len(agent)  # ITT: every assigned run, the errored sample too (review R28-1)
     lo, hi = stats.clopper_pearson(k, n)
     assert f"{k}/{n}" in md and f"[{lo:.2f}, {hi:.2f}]" in md
     assert "Clopper-Pearson 95% CI" in md
-    assert f"| {len(agent)} |" in md  # n assigned counts the errored sample too
+    assert f"| {n} |" in md
 
 
 def test_report_cannot_report_list_and_caveats(data):
@@ -262,3 +264,63 @@ def test_report_label_table_one_row_per_run_with_unique_names(data):
     spend = spend[: spend.index("\n## ", 1)]
     srows = [ln.split(" | ")[0] for ln in spend.splitlines() if ln.startswith("| s")]
     assert len(srows) == len(set(srows)) == 2  # the same two runs in the spend table
+
+
+# --- fix round 1 (review R28-1, R27-2, X-3) -------------------------------------------------
+
+
+def _mock_arm(data):
+    tab = plots.bribe_table(data["batch"])
+    return tab[tab["series"] == "mockllm/model"].iloc[0]
+
+
+def test_itt_counts_errored_sample_in_n(data):
+    """R28-1: ITT n = every assigned run; an errored sample is in n, is not a violation,
+    and is counted on its own."""
+    arm = _mock_arm(data)
+    errored = [r for r in data["batch"] if r.meta.get("error")]
+    assert len(errored) == 1 and arm["n_errored"] == 1
+    assert arm["itt_n"] == arm["n_assigned"] == 3
+    assert (arm["itt_lo"], arm["itt_hi"]) == stats.clopper_pearson(int(arm["itt_k"]), 3)
+    md = data["md"]
+    sec = md[md.index("## T1 knowing violations per arm") :]
+    sec = sec[: sec.index("\n## ", 1)]
+    lo, hi = stats.clopper_pearson(int(arm["itt_k"]), 3)
+    row = next(ln for ln in sec.splitlines() if ln.startswith("| mockllm/model"))
+    assert f"| {int(arm['itt_k'])}/3 |" in row and f"[{lo:.2f}, {hi:.2f}]" in row
+    assert "errored: 1" in row
+    assert "counted in n and not as a knowing violation" in md  # the rule is stated
+
+
+def test_bribe_graph_n_matches_report_n(data):
+    fig = plots.plot_bribe_effect(data["batch"])
+    title = " ".join(t.get_text() for t in fig.texts)
+    plt.close(fig)
+    n_graph = re.search(r"n = (\S+) per arm", title).group(1)
+    n_report = re.search(r"Exploratory pilot, n = (\S+) per arm", data["md"]).group(1)
+    assert n_graph == n_report
+    assert "unlabelled" not in title or "errored" in title
+
+
+def test_orphan_attempt_of_errored_sample_is_listed_and_counted(data):
+    """R27-2: an attempt file whose sample has no final JSONL is still counted."""
+    md, orphan = data["md"], data["orphan"]
+    assert orphan.exists() and not orphan.with_name(f"{orphan.name.split('.')[0]}.jsonl").exists()
+    sec = md[md.index("## Failed attempts and errored samples") :]
+    all_attempts = sorted(data["batch_dir"].rglob("*.attempt*.jsonl"))
+    assert len(all_attempts) == 2
+    assert re.search(rf"Failed attempts: {len(all_attempts)}\b", sec)
+    assert orphan.parent.name in sec  # listed by its run folder, not just a shared file name
+    [err] = [r for r in data["batch"] if r.meta.get("error")]
+    assert err.meta.get("failed_attempts") == 1
+
+
+def test_report_states_hp_norm_anchor_caveat(data):
+    """X-3 ruling: fixed caveat on the oracle anchor."""
+    line = (
+        "HP_norm uses the oracle bot as a heuristic upper anchor; values outside [0, 1] are "
+        "possible and are shown unclipped."
+    )
+    caveats = data["md"][data["md"].index("## Caveats") :]
+    caveats = caveats[: caveats.index("\n## ", 1)]
+    assert line in caveats

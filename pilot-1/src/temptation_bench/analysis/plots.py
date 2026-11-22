@@ -646,22 +646,29 @@ def _kv(r: RunFrame) -> int | None:
 
 
 def bribe_table(runs: list[RunFrame]) -> pd.DataFrame:
-    """Per arm: n assigned, n labelled, k knowing violations on T1 (ITT), Clopper-Pearson
-    95% CI; the same for the per-protocol cut (exposed runs only)."""
+    """Per arm: n assigned, n labelled, n errored, k knowing violations on T1 and the exact
+    Clopper-Pearson 95% CI for two cuts.
+
+    ITT (primary) uses every assigned run: n = n assigned. An errored or unlabelled run is
+    counted in n and not as a knowing violation; `n_errored` / `n_unlabelled` say how many
+    there were (review R28-1). Per-protocol (secondary) uses exposed runs only."""
     rows = []
     for s, d in _arms(runs):
         arm = [r for r in runs if (series_of(r), r.meta.get("dose")) == (s, d)]
         lab = [r for r in arm if _kv(r) is not None]
+        errored = [r for r in arm if r.meta.get("error") or r.meta.get("sample_error")]
         pp = [r for r in lab if r.labels.get("exposed")]
         row = {
             "series": s,
             "dose": d,
             "n_assigned": len(arm),
             "n_labelled": len(lab),
+            "n_errored": len(errored),
+            "n_unlabelled": sum(1 for r in arm if _kv(r) is None and r not in errored),
             "n_exposed": len(pp),
         }
-        for cut, rs in (("itt", lab), ("pp", pp)):
-            k = sum(_kv(r) for r in rs)
+        for cut, rs in (("itt", arm), ("pp", pp)):
+            k = sum(_kv(r) or 0 for r in rs)
             lo, hi = stats.clopper_pearson(k, len(rs)) if rs else (None, None)
             row |= {
                 f"{cut}_k": k,
@@ -676,7 +683,7 @@ def bribe_table(runs: list[RunFrame]) -> pd.DataFrame:
 
 def plot_bribe_effect(runs: list[RunFrame]) -> Figure:
     """Graph 7: share of runs with a knowing violation on T1 per dose, one panel per model
-    (ITT: every labelled run), point = k/n, bar = exact Clopper-Pearson 95% CI, k/n
+    (ITT: every assigned run), point = k/n, bar = exact Clopper-Pearson 95% CI, k/n
     written beside it. Descriptive only: no test, no slope."""
     tab = bribe_table(runs)
     series = _series_order(set(tab["series"])) if len(tab) else []
@@ -713,8 +720,12 @@ def plot_bribe_effect(runs: list[RunFrame]) -> Figure:
                 mec=SURFACE,
                 mew=1.5,
             )
-            extra = row["n_assigned"] - row["n_labelled"]
-            txt = f"{row['itt_k']}/{row['itt_n']}" + (f" (+{extra} unlabelled)" if extra else "")
+            missing = [
+                f"{name}: {int(row[col])}"
+                for name, col in (("errored", "n_errored"), ("unlabelled", "n_unlabelled"))
+                if row[col]
+            ]
+            txt = f"{row['itt_k']}/{row['itt_n']}" + (f" ({', '.join(missing)})" if missing else "")
             ax.annotate(
                 txt,
                 (xi, rate),
@@ -736,7 +747,8 @@ def plot_bribe_effect(runs: list[RunFrame]) -> Figure:
     counts = [int(x) for x in tab["itt_n"]] if len(tab) else [0]
     fig.suptitle(
         f"Bribe effect on T1 ({EXPLORATORY}, n = {_n_text(counts)} per arm)\n"
-        "ITT (all labelled runs); bars = Clopper-Pearson 95% CI; descriptive only",
+        "ITT: every assigned run (errored = in n, not a violation)\n"
+        "Bars = Clopper-Pearson 95% CI; descriptive only",
         x=0.01,
         ha="left",
         color=TEXT,
