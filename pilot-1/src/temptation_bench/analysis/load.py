@@ -20,7 +20,7 @@ from typing import Any
 
 import pandas as pd
 
-from ..engine.config import load_config
+from ..engine.config import load_config, runs_dir
 from ..engine.eventlog import Event, EventLog
 from ..engine.scoring import score
 from . import awareness
@@ -426,8 +426,11 @@ def _expected_jsonl(sample: Any, batch_dir: Path) -> Path | None:
     same `runs/<run id>/<name>` inside a moved batch when that folder exists."""
     st = _store(sample)
     p = st.get("jsonl_path") or st.get("log_path")
-    if not p:
-        return None
+    if not p:  # setup never ran: rebuild the path as harness/agent.py does, from the run_id
+        run_id = (sample.metadata or {}).get("run_id")
+        if not run_id:
+            return None
+        p = runs_dir() / run_id / f"{sample.id}-e{sample.epoch}.jsonl"
     want = Path(p)
     if want.parent.exists():
         return want
@@ -443,11 +446,50 @@ def _attempts_of(jsonl_path: Path) -> list[Path]:
     return sorted(p.parent.glob(f"{p.stem}.attempt*.jsonl")) if p.parent.exists() else []
 
 
-def load_batch(batch_dir: Path) -> list[RunFrame]:
+def _cell(r: RunFrame) -> tuple:
+    m = r.meta
+    keys = ("model", "seed", "dose", "people", "variant", "sample_id", "epoch")
+    return tuple(m.get(k) for k in keys)
+
+
+def _all_cached(r: RunFrame) -> bool:
+    return bool(len(r.turns)) and bool(r.turns["cached"].all())
+
+
+def _dedupe(runs: list[RunFrame], replays: list[RunFrame] | None) -> list[RunFrame]:
+    """One run per assigned cell (model, seed, dose, people, variant, sample id, epoch; X-1).
+
+    A re-run of a cell already loaded (e.g. a cache replay of the same sample) is not a
+    second assigned run. Kept: the labelled, freshly generated one (first wins on a tie).
+    The others get `meta["duplicate_of"]` and go to `replays`. Runs with no sample id (bot
+    JSONLs) are never merged."""
+    groups: dict[tuple, list[RunFrame]] = {}
+    for r in runs:
+        if r.meta.get("sample_id") is not None:
+            groups.setdefault(_cell(r), []).append(r)
+    drop: set[int] = set()
+    for group in groups.values():
+        if len(group) < 2:
+            continue
+        keep = max(group, key=lambda r: (bool(r.labels), not _all_cached(r)))
+        for r in group:
+            if r is not keep:
+                r.meta["duplicate_of"] = keep.meta.get("jsonl_path") or keep.meta.get("sample_id")
+                drop.add(id(r))
+                if replays is not None:
+                    replays.append(r)
+    return [r for r in runs if id(r) not in drop]
+
+
+def load_batch(batch_dir: Path, *, replays: list[RunFrame] | None = None) -> list[RunFrame]:
     """Every run under `batch_dir`: each `.eval` sample (paired with its JSONL), then every
     other sealed JSONL (bot runs). `.attempt<k>.jsonl` files are not runs; each run's
     `meta["failed_attempts"]` counts its own. A sample whose JSONL is missing is kept as an
-    empty RunFrame with `meta["error"]` (failed samples are never dropped, spec §8)."""
+    empty RunFrame with `meta["error"]` (failed samples are never dropped, spec §8); its
+    expected path (`meta["jsonl_expected"]`, from the `.eval` store or run_id) locates its
+    attempt files, which in the real layout live in `runs_dir()/<run_id>/`, outside the
+    batch dir. Duplicate samples of one cell are merged (`_dedupe`); pass a list as
+    `replays` to receive the dropped duplicates."""
     batch_dir = Path(batch_dir)
     runs: list[RunFrame] = []
     claimed: set[Path] = set()
@@ -467,6 +509,9 @@ def load_batch(batch_dir: Path) -> list[RunFrame]:
                             "epoch": s.epoch,
                             "seed": (s.metadata or {}).get("seed"),
                             "dose": (s.metadata or {}).get("dose"),
+                            "people": (s.metadata or {}).get("people"),
+                            "variant": (s.metadata or {}).get("variant"),
+                            "run_id": (s.metadata or {}).get("run_id"),
                             "error": "no sealed JSONL for this sample",
                             "jsonl_expected": str(expected) if expected else None,
                             # attempts of a sample with no final JSONL still count (R27-2)
@@ -482,7 +527,7 @@ def load_batch(batch_dir: Path) -> list[RunFrame]:
         if ATTEMPT_RE.search(path.name) or path.resolve() in claimed:
             continue
         runs.append(_build(path))
-    return runs
+    return _dedupe(runs, replays)
 
 
 def labels_table(runs: list[RunFrame]) -> pd.DataFrame:

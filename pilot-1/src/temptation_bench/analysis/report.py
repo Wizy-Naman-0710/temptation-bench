@@ -74,12 +74,12 @@ def _rate(k, n) -> str:
 
 
 def _run_name(r: RunFrame) -> str:
-    """Sample name; a harness run (log in `runs/<run id>/`) also gets its run id, since a
+    """Sample name; a harness run (log in `runs_dir()/<run id>/`) also gets its run id, since a
     re-run or cache replay of one sample has the same file name in another run folder."""
     m = r.meta
     name = str(m.get("source") or m.get("sample_id") or "?")
     p = m.get("jsonl_path")
-    if p and Path(p).parent.parent.name == "runs":
+    if p and m.get("eval_path"):  # harness JSONLs live in runs_dir()/<run_id>/
         name += f" @{Path(p).parent.name}"
     return name
 
@@ -88,26 +88,49 @@ def _file_safe(name: str) -> str:
     return re.sub(r"[^A-Za-z0-9_.-]+", "_", name).strip("_")
 
 
+def _all_cached(r: RunFrame) -> bool:
+    return bool(len(r.turns)) and bool(r.turns["cached"].all())
+
+
 def _run_desc(r: RunFrame) -> str:
     cached = len(r.turns) and bool(r.turns["cached"].all())
     return _run_name(r) + (", cached replay" if cached else "")
 
 
 def _attempts(batch_dir: Path, runs: list[RunFrame]) -> list[tuple[str, Path]]:
-    """Every `*.attempt<k>.jsonl` under the batch (R27-2: also those of a sample that has no
-    final JSONL), each with the run it belongs to, matched on folder and file stem."""
+    """Every `<name>.attempt<k>.jsonl` of the batch, each with the run it belongs to.
+
+    In the real layout the JSONLs live in `runs_dir()/<run_id>/`, outside the batch dir
+    (R27-2), so the union of: files beside each run's JSONL, files beside the expected JSONL
+    of a sample that has none (its run dir comes from the `.eval`), and any under the batch
+    dir. Deduplicated by resolved path."""
     owner: dict[tuple[Path, str], str] = {}
+    found: dict[Path, Path] = {}
     for r in runs:
         p = r.meta.get("jsonl_path") or r.meta.get("jsonl_expected")
-        if p:
-            owner[(Path(p).parent.resolve(), Path(p).stem)] = _run_name(r) + (
-                " (errored: no final JSONL)" if r.meta.get("error") else ""
-            )
+        if not p:
+            continue
+        p = Path(p)
+        tag = " (errored: no final JSONL)" if r.meta.get("error") else ""
+        tag = tag or (" (duplicate, not in n)" if r.meta.get("duplicate_of") else "")
+        owner[(p.parent.resolve(), p.stem)] = _run_name(r) + tag
+        if p.parent.exists():
+            for f in p.parent.glob(f"{p.stem}.attempt*.jsonl"):
+                found.setdefault(f.resolve(), f)
+    for f in Path(batch_dir).rglob("*.attempt*.jsonl"):
+        found.setdefault(f.resolve(), f)
     out = []
-    for f in sorted(Path(batch_dir).rglob("*.attempt*.jsonl")):
+    for f in sorted(found.values(), key=lambda f: (f.parent.name, f.name)):
         stem = f.name.split(".attempt")[0]
         out.append((owner.get((f.parent.resolve(), stem), f"(no run found) {stem}"), f))
     return out
+
+
+def _failures(runs: list[RunFrame]) -> tuple[list[RunFrame], list[RunFrame]]:
+    """(errored samples, labelled runs that still carry a sample error)."""
+    errored = [r for r in runs if plots.is_errored(r)]
+    labelled_err = [r for r in runs if r.meta.get("sample_error") and not plots.is_errored(r)]
+    return errored, labelled_err
 
 
 def _figures(runs, bots, fig_dir: Path) -> list[tuple[str, str]]:
@@ -159,7 +182,8 @@ def build_report(
     results = Path(results_dir or os.environ.get("RESULTS_DIR") or ROOT / "results")
     out_dir = results / batch_dir.name
     fig_dir = out_dir / "figures"
-    runs = load_batch(batch_dir)
+    replays: list[RunFrame] = []
+    runs = load_batch(batch_dir, replays=replays)
     bots = load_batch(bots_dir)
     figures = _figures(runs, bots, fig_dir)
 
@@ -192,8 +216,8 @@ def build_report(
     ]
 
     # --- runs ---
-    errored = [r for r in runs if r.meta.get("error") or r.meta.get("sample_error")]
-    attempts = _attempts(batch_dir, runs)
+    errored, labelled_err = _failures(runs)
+    attempts = _attempts(batch_dir, runs + replays)
     md += ["## Runs", ""]
     md += _table(
         ["what", "count"],
@@ -202,6 +226,7 @@ def build_report(
             ["  with labels", sum(1 for r in runs if r.labels)],
             ["  errored samples", len(errored)],
             ["  failed attempt files", len(attempts)],
+            ["replays / duplicate samples (not in n)", len(replays)],
             ["bot runs (baselines)", len(bots)],
         ],
     )
@@ -418,7 +443,7 @@ def build_report(
     md += (
         _table(
             ["run", "attempt file"],
-            [[who, p.relative_to(batch_dir).as_posix()] for who, p in attempts],
+            [[who, f"{p.parent.name}/{p.name}"] for who, p in attempts],
         )
         if (attempts)
         else ["None."]
@@ -442,6 +467,43 @@ def build_report(
         else ["None."]
     )
     md += ["", "Errored samples stay in n assigned (ITT) and are never dropped.", ""]
+    md += [
+        f"Labelled runs with a sample error: {len(labelled_err)} (a sealed, labelled JSONL "
+        "exists, so the run counts as labelled; the error is listed here)",
+        "",
+    ]
+    if labelled_err:
+        md += _table(
+            ["run", "sample error"],
+            [[_run_name(r), r.meta.get("sample_error")] for r in labelled_err],
+        )
+        md += [""]
+
+    # --- replays ---
+    md += [
+        "## Replays and duplicate samples (not counted in n)",
+        "",
+        "A re-run of a cell already in the batch (same model, seed, offer, people, variant, "
+        "sample id and epoch), e.g. a cache replay. It is one assigned run, so only the kept "
+        "run counts in n; the duplicates are listed here.",
+        "",
+    ]
+    md += (
+        _table(
+            ["duplicate", "kind", "kept run"],
+            [
+                [
+                    _run_name(r),
+                    "cached replay" if _all_cached(r) else "re-run",
+                    "/".join(Path(str(r.meta.get("duplicate_of"))).parts[-2:]),
+                ]
+                for r in replays
+            ],
+        )
+        if replays
+        else ["None."]
+    )
+    md += [""]
 
     # --- spend ---
     md += ["## Spend", ""]

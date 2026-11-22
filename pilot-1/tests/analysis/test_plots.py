@@ -47,9 +47,9 @@ def _script():
     ]
 
 
-def _eval(model, log_dir: Path) -> Path:
+def _eval(model, log_dir: Path, seeds: str = "1") -> Path:
     [log] = inspect_eval(
-        temptation_bench(variant="window", seeds="1", doses="3000000"),
+        temptation_bench(variant="window", seeds=seeds, doses="3000000"),
         model=model,
         log_dir=str(log_dir),
         display="none",
@@ -60,8 +60,10 @@ def _eval(model, log_dir: Path) -> Path:
 
 @pytest.fixture(scope="module")
 def data(tmp_path_factory):
+    """The real layout (run.py / harness/agent.py): `.eval` logs in the batch dir, engine
+    JSONLs and attempt files in `runs_dir()/<run_id>/`, which is NOT inside the batch."""
     root = tmp_path_factory.mktemp("t28")
-    bots_dir, batch = root / "bots", root / "batch"
+    bots_dir, batch, runs_root = root / "bots", root / "batch", root / "runs"
     for name in BOTS:
         for seed in SEEDS:
             for dose in DOSES:
@@ -69,19 +71,20 @@ def data(tmp_path_factory):
     with pytest.MonkeyPatch.context() as mp:
         mp.setenv("INSPECT_DISABLE_MODEL_API", "1")
         mp.setenv("INSPECT_CACHE_DIR", str(root / "inspect_cache"))
-        mp.setenv("RUNS_DIR", str(batch / "runs"))
+        mp.setenv("RUNS_DIR", str(runs_root))
         model = get_model("mockllm/model", custom_outputs=_script())
-        _eval(model, batch / "logs")  # fresh run
-        _eval(model, batch / "logs")  # same instance: every turn is a cache read
-        before = set((batch / "runs").rglob("*.jsonl"))
-        _eval(model, batch / "logs")  # an errored sample: its sealed JSONL is lost
-        [lost] = set((batch / "runs").rglob("*.jsonl")) - before
+        _eval(model, batch / "logs")  # fresh run of cell s1
+        [fresh] = set(runs_root.rglob("*.jsonl"))
+        _eval(model, batch / "logs")  # same cell, same instance: a cache replay (X-1)
+        before = set(runs_root.rglob("*.jsonl"))
+        other = get_model("mockllm/model", custom_outputs=_script(), memoize=False)
+        _eval(other, batch / "logs", seeds="2")  # cell s2: an errored sample, JSONL lost
+        [lost] = set(runs_root.rglob("*.jsonl")) - before
         # its earlier attempt survived, the final JSONL did not (an orphan attempt file)
         shutil.copy(lost, lost.with_name(f"{lost.stem}.attempt1.jsonl"))
         lost.unlink()
-        # a failed harness attempt beside a run (kept, never loaded as a run)
-        first = sorted(before)[0]
-        shutil.copy(first, first.with_name(f"{first.stem}.attempt1.jsonl"))
+        # a failed harness attempt beside a loaded run (kept, never loaded as a run)
+        shutil.copy(fresh, fresh.with_name(f"{fresh.stem}.attempt1.jsonl"))
         # a run with a clipped list output (paid-run mode: clip + log)
         mp.setattr(Branch, "strict_output", False)
         cfg = load_config("window", caps={"output_chars": 300})
@@ -92,12 +95,17 @@ def data(tmp_path_factory):
     ledger = root / "ledger.jsonl"
     ledger.write_text(json.dumps({"step": "smoke", "actual": 0.1234}) + "\n")
     report = build_report(batch, bots_dir, results_dir=root / "results", ledger_path=ledger)
+    replays: list = []
+    loaded = load_batch(batch, replays=replays)
     return {
         "bots": load_batch(bots_dir),
-        "batch": load_batch(batch),
+        "batch": loaded,
+        "replays": replays,
         "report": report,
         "md": report.read_text(),
         "batch_dir": batch,
+        "runs_root": runs_root,
+        "fresh_attempt": fresh.with_name(f"{fresh.stem}.attempt1.jsonl"),
         "orphan": lost.with_name(f"{lost.stem}.attempt1.jsonl"),
     }
 
@@ -113,7 +121,7 @@ def _agent(runs, cached: bool):
 @pytest.mark.filterwarnings("error::UserWarning")
 def test_all_graphs_render(data):
     bots, batch = data["bots"], data["batch"]
-    fresh, replay = _agent(batch, False), _agent(batch, True)
+    fresh, replay = _agent(batch, False), _agent(data["replays"], True)
     honest = next(r for r in bots if r.meta["bot"] == "honest")
     figs = []
     for rf in (fresh, replay, honest):
@@ -169,7 +177,7 @@ def test_every_result_figure_says_exploratory(data):
 
 
 def test_tokens_cost_marks_cached_turns(data):
-    replay = _agent(data["batch"], True)
+    replay = _agent(data["replays"], True)
     n_cached = int(replay.turns["cached"].sum())
     assert n_cached == len(replay.turns) > 0
     fig = plots.plot_tokens_cost(replay)
@@ -216,8 +224,8 @@ def test_report_cannot_report_list_and_caveats(data):
 def test_report_lists_failed_and_errored_samples(data):
     md = data["md"]
     sec = md[md.index("## Failed attempts and errored samples") :]
-    attempts = sorted(data["batch_dir"].rglob("*.attempt*.jsonl"))
-    assert attempts and all(p.name in sec for p in attempts)
+    attempts = sorted(data["runs_root"].rglob("*.attempt*.jsonl"))
+    assert attempts and all(f"{p.parent.name}/{p.name}" in sec for p in attempts)
     errored = [r for r in data["batch"] if r.meta.get("error")]
     assert errored and all(str(r.meta["sample_id"]) in sec for r in errored)
     assert re.search(rf"Errored samples: {len(errored)}\b", sec)
@@ -263,7 +271,8 @@ def test_report_label_table_one_row_per_run_with_unique_names(data):
     spend = md[md.index("## Spend") :]
     spend = spend[: spend.index("\n## ", 1)]
     srows = [ln.split(" | ")[0] for ln in spend.splitlines() if ln.startswith("| s")]
-    assert len(srows) == len(set(srows)) == 2  # the same two runs in the spend table
+    with_turns = [r for r in data["batch"] if len(r.turns)]
+    assert len(srows) == len(set(srows)) == len(with_turns)  # one row per run with turns
 
 
 # --- fix round 1 (review R28-1, R27-2, X-3) -------------------------------------------------
@@ -280,14 +289,15 @@ def test_itt_counts_errored_sample_in_n(data):
     arm = _mock_arm(data)
     errored = [r for r in data["batch"] if r.meta.get("error")]
     assert len(errored) == 1 and arm["n_errored"] == 1
-    assert arm["itt_n"] == arm["n_assigned"] == 3
-    assert (arm["itt_lo"], arm["itt_hi"]) == stats.clopper_pearson(int(arm["itt_k"]), 3)
+    n = 2  # cells s1 (fresh; its cache replay is not a second run) and s2 (errored)
+    assert arm["itt_n"] == arm["n_assigned"] == n
+    assert (arm["itt_lo"], arm["itt_hi"]) == stats.clopper_pearson(int(arm["itt_k"]), n)
     md = data["md"]
     sec = md[md.index("## T1 knowing violations per arm") :]
     sec = sec[: sec.index("\n## ", 1)]
-    lo, hi = stats.clopper_pearson(int(arm["itt_k"]), 3)
+    lo, hi = stats.clopper_pearson(int(arm["itt_k"]), n)
     row = next(ln for ln in sec.splitlines() if ln.startswith("| mockllm/model"))
-    assert f"| {int(arm['itt_k'])}/3 |" in row and f"[{lo:.2f}, {hi:.2f}]" in row
+    assert f"| {int(arm['itt_k'])}/{n} |" in row and f"[{lo:.2f}, {hi:.2f}]" in row
     assert "errored: 1" in row
     assert "counted in n and not as a knowing violation" in md  # the rule is stated
 
@@ -307,7 +317,7 @@ def test_orphan_attempt_of_errored_sample_is_listed_and_counted(data):
     md, orphan = data["md"], data["orphan"]
     assert orphan.exists() and not orphan.with_name(f"{orphan.name.split('.')[0]}.jsonl").exists()
     sec = md[md.index("## Failed attempts and errored samples") :]
-    all_attempts = sorted(data["batch_dir"].rglob("*.attempt*.jsonl"))
+    all_attempts = sorted(data["runs_root"].rglob("*.attempt*.jsonl"))
     assert len(all_attempts) == 2
     assert re.search(rf"Failed attempts: {len(all_attempts)}\b", sec)
     assert orphan.parent.name in sec  # listed by its run folder, not just a shared file name
@@ -324,3 +334,74 @@ def test_report_states_hp_norm_anchor_caveat(data):
     caveats = data["md"][data["md"].index("## Caveats") :]
     caveats = caveats[: caveats.index("\n## ", 1)]
     assert line in caveats
+
+
+# --- fix round 2 (re-review: R27-2 real layout, attempt regression, X-1, sample_error) ------
+
+
+def test_real_layout_runs_dir_is_outside_the_batch(data):
+    assert not data["runs_root"].resolve().is_relative_to(data["batch_dir"].resolve())
+    assert not list(data["batch_dir"].rglob("*.attempt*.jsonl"))  # all attempts live in runs/
+
+
+def test_attempt_beside_loaded_run_counted_in_real_layout(data):
+    """Re-review Important: an attempt file next to a loaded run's JSONL is counted even
+    when runs/ is outside the batch dir."""
+    att = data["fresh_attempt"]
+    sec = data["md"][data["md"].index("## Failed attempts and errored samples") :]
+    assert f"{att.parent.name}/{att.name}" in sec
+    [fresh] = [
+        r for r in data["batch"] if Path(r.meta.get("jsonl_path") or "-").parent == att.parent
+    ]
+    assert fresh.meta["failed_attempts"] == 1
+
+
+def test_orphan_attempt_found_through_eval_run_id_in_real_layout(data):
+    """R27-2: the errored sample has no JSONL; its run dir comes from the .eval (run_id /
+    store path) and its attempt file there is listed and counted."""
+    orphan = data["orphan"]
+    sec = data["md"][data["md"].index("## Failed attempts and errored samples") :]
+    assert f"{orphan.parent.name}/{orphan.name}" in sec
+    [err] = [r for r in data["batch"] if r.meta.get("error")]
+    assert Path(err.meta["jsonl_expected"]).parent == orphan.parent
+    total = len(list(data["runs_root"].rglob("*.attempt*.jsonl")))
+    assert re.search(rf"Failed attempts: {total}\b", sec)
+    runs_sec = data["md"][data["md"].index("## Runs") :]
+    assert re.search(rf"failed attempt files \| {total} \|", runs_sec)
+
+
+def test_cache_replay_counted_once_and_listed(data):
+    """X-1: a re-run of an already-loaded cell (same model, seed, dose, people, variant,
+    sample id, epoch) is one assigned run; the duplicate is listed as a replay."""
+    [replay] = data["replays"]
+    assert len(replay.turns) and bool(replay.turns["cached"].all())
+    keys = [
+        (r.meta.get("model"), r.meta.get("seed"), r.meta.get("dose"), r.meta.get("sample_id"))
+        for r in data["batch"]
+        if r.meta.get("sample_id") is not None
+    ]
+    assert len(keys) == len(set(keys))
+    assert _mock_arm(data)["n_assigned"] == 2
+    md = data["md"]
+    sec = md[md.index("## Replays and duplicate samples") :]
+    sec = sec[: sec.index("\n## ", 1)]
+    assert replay.meta["sample_id"] in sec and "cached replay" in sec
+    assert Path(replay.meta["jsonl_path"]).parent.name in sec
+
+
+def test_labelled_run_with_sample_error_counts_as_labelled(data):
+    """Ruling: a sealed, labelled JSONL wins; the sample error is listed, not counted as
+    an errored run as well as in k."""
+    import copy
+
+    from temptation_bench.analysis import report
+
+    base = next(r for r in data["batch"] if r.labels and r.meta.get("sample_id"))
+    odd = copy.copy(base)
+    odd.meta = {**base.meta, "sample_error": "TimeoutError after the seal"}
+    tab = plots.bribe_table([odd])
+    row = tab.iloc[0]
+    assert (row["n_labelled"], row["n_errored"], row["n_unlabelled"]) == (1, 0, 0)
+    assert row["n_labelled"] + row["n_errored"] + row["n_unlabelled"] == row["n_assigned"]
+    errored, labelled_err = report._failures([odd])
+    assert errored == [] and labelled_err == [odd]

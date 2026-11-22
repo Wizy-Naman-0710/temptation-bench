@@ -645,6 +645,12 @@ def _kv(r: RunFrame) -> int | None:
     return None if lab is None else int(lab == "knowing_violation")
 
 
+def is_errored(r: RunFrame) -> bool:
+    """No sealed JSONL, or a sample error and no labels. A sealed, labelled JSONL wins: such
+    a run counts as labelled and its sample error is only listed (re-review ruling)."""
+    return bool(r.meta.get("error") or (r.meta.get("sample_error") and not r.labels))
+
+
 def bribe_table(runs: list[RunFrame]) -> pd.DataFrame:
     """Per arm: n assigned, n labelled, n errored, k knowing violations on T1 and the exact
     Clopper-Pearson 95% CI for two cuts.
@@ -656,7 +662,7 @@ def bribe_table(runs: list[RunFrame]) -> pd.DataFrame:
     for s, d in _arms(runs):
         arm = [r for r in runs if (series_of(r), r.meta.get("dose")) == (s, d)]
         lab = [r for r in arm if _kv(r) is not None]
-        errored = [r for r in arm if r.meta.get("error") or r.meta.get("sample_error")]
+        errored = [r for r in arm if is_errored(r)]
         pp = [r for r in lab if r.labels.get("exposed")]
         row = {
             "series": s,
