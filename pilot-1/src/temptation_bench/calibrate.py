@@ -19,6 +19,7 @@ from pathlib import Path
 from .bots import BOTS
 from .engine.branch import Branch
 from .engine.config import CALIBRATION_FILE, CONFIG_DIR, load_config
+from .engine.eventlog import EventLog
 from .engine.money import fmt
 from .engine.scoring import score
 
@@ -49,10 +50,10 @@ def round_target(volumes: list[int], factor_bp: int, round_to: int) -> int:
 
 
 def honest_volume(branch: Branch) -> int:
-    """Run the honest bot to the end and return its campaign volume {cents} (from the log)."""
+    """Run the honest bot to the end and return its campaign volume {cents}, scored from the
+    sealed JSONL file (never the live world)."""
     BOTS[BOT]().run(branch)
-    branch.finalize()
-    return score(branch._world.log.events).campaign_volume
+    return score(EventLog.read_jsonl(branch.finalize().path)).campaign_volume
 
 
 def calibrate(seeds: tuple[int, ...], variant: str = VARIANT) -> dict:

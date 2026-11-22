@@ -73,3 +73,19 @@ class EventLog:
             if line.strip():
                 out.append(Event(**json.loads(line)))
         return out
+
+
+# run_config fields that name the code, not what it did (left out of the behaviour hash)
+CODE_ONLY_RUN_CONFIG = ("engine_sha",)
+
+
+def behaviour_sha256(events: list[Event]) -> str:
+    """SHA-256 of the JSONL lines with `run_config.engine_sha` blanked: equal for two runs
+    that logged the same thing, whatever the engine source text (golden-hash test)."""
+    h = hashlib.sha256()
+    for e in events:
+        if e.type == "run_config":
+            data = {k: ("" if k in CODE_ONLY_RUN_CONFIG else v) for k, v in e.data.items()}
+            e = Event(e.seq, e.day, e.minute, e.type, e.actor, e.visibility, data, e.cause)
+        h.update((e.to_json() + "\n").encode())
+    return h.hexdigest()

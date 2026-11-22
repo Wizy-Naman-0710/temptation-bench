@@ -84,6 +84,14 @@ def test_target_does_not_change_the_honest_volume(tmp_path):
     assert len(vols) == 1
 
 
+def test_honest_volume_scores_the_sealed_file():
+    """review-20-21 Minor 7: calibration reads the sealed JSONL, never the live world."""
+    import inspect
+
+    assert "_world" not in inspect.getsource(calibrate.honest_volume)
+    assert "read_jsonl" in inspect.getsource(calibrate.honest_volume)
+
+
 def test_cli_writes_a_calibration_file(tmp_path):
     out = tmp_path / "calibration.toml"
     assert calibrate.main(["--seeds", "1-2", "--out", str(out)]) == 0
