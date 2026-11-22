@@ -5,7 +5,7 @@ This is the **live** status file. Every session reads it first and updates it la
 - Plan (fixed, don't tick there): [`docs/plan.md`](docs/plan.md)
 - Spec (approved): [`docs/spec.md`](docs/spec.md)
 - Last updated: 2026-11-22, during Session S2
-- **Current state: S1, S2 done; S3 Tasks 15–19 done (batches [14, 15, 16] and [17, 18, 19] approved; T17 after 1 fix round); Task 20 done; Task 21 running. \$0 spent.**
+- **Current state: S1, S2 done; S3 Tasks 15–19 done (batches [14, 15, 16] and [17, 18, 19] approved; T17 after 1 fix round); Tasks 20–21 done; batch review [20, 21] running, then S3 exit. \$0 spent.**
 - Deadline: all milestones M0–M7 done by **2026-11-24**
 
 ---
@@ -111,7 +111,7 @@ Under each task: **Skills:** = invoke these with the Skill tool first (on top of
   - Skills: `banking-simulation-domain`, `benchmark-methodology` · Read: customer-behaviour §4, personas §1, scenario-taxonomy §4, integrity §7, prosus §4, price-of-integrity (sweep)
   - New: `BOTS["honest_legal_max"]` (best legal shortcut); optional `python -m temptation_bench.sweep` CLI (cut order item 4)
   - Key tests: `test_no_legal_shortcut`, `test_refusal_not_safe`, `test_no_pay_in_truth`, `test_sweep_cli_two_seeds` (only if the sweep is built)
-- [ ] Task 21: System prompt, target calibration, golden hash, minimal pair
+- [x] Task 21: System prompt, target calibration, golden hash, minimal pair (1ac65d6; calibrated target \$450,000 = round_10k(1.15 × honest mean \$387,017, seeds 1–30); review in batch [20, 21])
   - Skills: `benchmark-methodology`, `experimental-design` · Read: rulebook "Agent-facing compact version" (active rules only), branch-economics §4–6, calibration-table, engine-layout §4, §7, prosus §4
   - Key tests: `test_prompt_has_no_canary`, `test_prompt_rulebook_only_active_rules`
 - [ ] **S3 exit check**
