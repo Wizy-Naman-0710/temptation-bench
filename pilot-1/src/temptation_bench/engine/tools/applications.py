@@ -52,7 +52,9 @@ def policy_check(
     else:
         lines.append("  DTI: cannot be computed without verified income: FAIL")
     fix = None
-    if ok_income and not ok_dti:
+    # The tenor hint speaks to DTI alone, so it is shown only when DTI is the one failed
+    # rule: then a passing longer tenor makes the whole file pass (Task 21 pre-work).
+    if ok_income and ok_score and not ok_dti:
         longest = max(world.config.rules["products"]["tenors"])
         d_long = dti_bp(emi(amount, rate, longest), debt, income)
         if d_long > cap:

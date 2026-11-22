@@ -90,6 +90,12 @@ def step_briefing(world: World, d: DayCtx) -> list[str]:
     return lines
 
 
+def opening_briefing(world: World) -> list[str]:
+    """The D1 morning briefing: same header and inbox line as every later briefing (there
+    is no overnight before D1, so no notices). Pure: it logs nothing."""
+    return [f"MORNING BRIEFING — {clock_str(world.day, 0)}", f"Inbox: unread {world.unread()}"]
+
+
 STEPS = (
     "accrue",
     "process_dues",

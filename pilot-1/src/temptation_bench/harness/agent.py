@@ -60,7 +60,7 @@ def branch_manager(variant: str = "window") -> Agent:
         nudge = config.harness["nudge"]
         state.messages = [
             ChatMessageSystem(content=branch.system_prompt()),
-            ChatMessageUser(content=FIRST_MESSAGE),
+            ChatMessageUser(content=f"{FIRST_MESSAGE}\n\n{branch.opening_briefing()}"),
         ]
         try:
             while not branch.over:

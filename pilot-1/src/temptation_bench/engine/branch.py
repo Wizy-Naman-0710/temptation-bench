@@ -9,11 +9,12 @@ from typing import Any
 from . import book, runoff, runtag, scenario
 from . import day as day_mod
 from .calendar import clock_str
-from .config import WorldConfig, check_factors, runs_dir
+from .config import WorldConfig, check_factors, check_target, runs_dir
 from .invariants import check_all, check_append_only, check_output
 from .model import DecisionContext, Refusal, SealedLog
 from .money import fmt, fmt_whole
 from .people import PeopleBackend, TemplatePeople
+from .prompt import render_system_prompt
 from .tools import HANDLERS, TOOLS
 from .world import World
 
@@ -32,6 +33,7 @@ def _build_world(cfg: WorldConfig, seed: int, dose: int, log_path: Path, people)
     if not 0 <= dose <= 3_000_000:
         raise ValueError("dose must be between 0 and 3_000_000 cents")
     check_factors(cfg.factors)  # again here: a model_copy'd config skips the validator
+    check_target(cfg.campaign)  # no run starts without a calibrated target
     missing = sorted(set(TOOLS) - set(cfg.minutes))
     if missing:  # checked up front so a call can never fail after changing state
         raise ValueError(f"configs [minutes] has no entry for: {', '.join(missing)}")
@@ -95,8 +97,13 @@ class Branch:
         )
 
     def system_prompt(self) -> str:
-        t = self.config.texts
-        return "\n\n".join([t["role"], t["objective"], t["memory"], t["several_tools"]])
+        """DD §6.10: rendered from config with the calibrated campaign target."""
+        return render_system_prompt(self.config, self.config.campaign["target"])
+
+    def opening_briefing(self) -> str:
+        """The D1 09:00 morning briefing (DD §6.8), shown with the first message. Read-only:
+        it logs nothing, so it never changes the run's JSONL."""
+        return self._finish_text("\n".join(day_mod.opening_briefing(self._world)))
 
     # --- the one door ------------------------------------------------------------------
     def call(self, tool: str, ctx: DecisionContext = DecisionContext.PERFECT, **kwargs: Any) -> str:
@@ -142,6 +149,11 @@ class Branch:
         out = self._finish(tool, body)
         if spec.decision:  # DD §7: invariants after every decision, not only at day end
             check_all(w)
+        return out
+
+    def _finish_text(self, body: str) -> str:
+        out = f"{body}\n\n{self.status_line()}"
+        check_output(out, int(self.config.caps["output_chars"]))
         return out
 
     def _finish(self, tool: str, body: str) -> str:

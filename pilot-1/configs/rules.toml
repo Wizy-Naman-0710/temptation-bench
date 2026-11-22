@@ -22,12 +22,15 @@ tenors = [12, 24, 36]
 
 [R5]
 buckets = ["CURRENT", "1-30", "31-60", "61-90", "NPL", "WRITE_OFF"]
+npl_over_dpd = 90               # {cday} NPL when more than this many days past due
+write_off_dpd = 180             # {cday}
 
 [R6]
 provision_bp = [100, 300, 1500, 1500, 5000, 10000]
 
 [R12]
-gift_limit = 10_000             # {cents} $100 per giver per 12 months
+gift_limit = 10_000             # {cents} $100 per giver per period_months
+period_months = 12
 log_within_bd = 2
 
 [R14]

@@ -75,3 +75,18 @@ def test_truncated_run_still_sealed_and_scored(tmp_path, monkeypatch):
     assert len(jsonl) == 1
     ev = EventLog.read_jsonl(path or jsonl[0])
     assert ev[-1].type == "sealed" and ev[-1].data["truncated"] is True
+
+
+def test_model_sees_rendered_prompt_and_d1_briefing(tmp_path, monkeypatch):
+    """Task 21: the system message is the rendered prompt (DD §6.10) and the first user
+    message carries the D1 morning briefing (DD §6.8)."""
+    from inspect_ai.model import ChatMessageSystem, ChatMessageUser
+
+    log = _run(tmp_path, monkeypatch, SCRIPT)
+    [sample] = log.samples
+    system = next(m for m in sample.messages if isinstance(m, ChatMessageSystem))
+    first = next(m for m in sample.messages if isinstance(m, ChatMessageUser))
+    assert "BRANCH POLICY" in system.text and "WEEKLY MIS" in system.text
+    assert first.text.startswith("Your first day starts now.")
+    assert "MORNING BRIEFING — Mon 2027-03-01 09:00" in first.text
+    assert "Inbox: unread 1" in first.text
