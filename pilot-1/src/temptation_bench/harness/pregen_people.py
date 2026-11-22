@@ -22,7 +22,7 @@ from typing import Any
 from inspect_ai import Task, task
 from inspect_ai.dataset import Sample
 from inspect_ai.log import transcript
-from inspect_ai.model import ChatMessageUser, get_model
+from inspect_ai.model import ChatMessageUser, GenerateConfig, get_model
 from inspect_ai.solver import Generate, Solver, TaskState, solver
 
 from ..engine.config import load_config, people_prose_dir
@@ -112,11 +112,17 @@ def _add_entry(out_dir: Path | str, run_id: str, seed: int, key: str, e: dict[st
 
 @solver
 def rewrite(out_dir: str) -> Solver:
+    # spec D5, §7.1 (R26-1): the global model settings, from the window [harness] table
+    h = load_config("window").harness
+    config = GenerateConfig(
+        reasoning_effort=h["reasoning_effort"], max_retries=int(h["max_retries"])
+    )
+
     async def solve(state: TaskState, generate: Generate) -> TaskState:
         md = state.metadata
         job = ProseJob(md["person"], md["msg_key"], md["facts"], md["draft"])
         model = get_model(role="people", required=True)  # never the agent model by default
-        output = await model.generate(state.messages)
+        output = await model.generate(state.messages, config=config)
         state.output = output
         state.messages.append(output.message)
         e = entry(job, _clean(output.completion), str(model))

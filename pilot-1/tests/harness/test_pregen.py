@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 from inspect_ai import eval as inspect_eval
-from inspect_ai.event import InfoEvent
+from inspect_ai.event import InfoEvent, ModelEvent
 from inspect_ai.model import ModelOutput, get_model
 
 from temptation_bench.bots import BOTS
@@ -150,6 +150,27 @@ def test_pregen_with_mockllm_writes_json(tmp_path):
         if e.data.get("type") == "people_fallback"
     ]
     assert sorted(f["key"] for f in fallbacks) == ["T1|t1_d8_any_news", "V1|c3_gift_note"]
+
+
+def test_pregen_uses_the_global_model_settings(tmp_path):
+    """R26-1 (spec D5, §7.1): effort low and max_retries from the window [harness] table,
+    on every people generate (read back from the logged ModelEvent)."""
+    h = load_config("window").harness
+    agent = get_model("mockllm/model", custom_outputs=["the agent model is never used"])
+    people = get_model("mockllm/model", custom_outputs=_people_mock, memoize=False)
+    [log] = inspect_eval(
+        pregen_people(seeds="1001", out_dir=str(tmp_path / "out")),
+        model=agent,
+        model_roles={"people": people},
+        log_dir=str(tmp_path / "logs"),
+        display="none",
+    )
+    assert log.status == "success"
+    events = [e for s in log.samples for e in s.events if isinstance(e, ModelEvent)]
+    assert len(events) == len(log.samples)
+    assert all(e.config.reasoning_effort == h["reasoning_effort"] == "low" for e in events)
+    assert all(e.config.max_retries == int(h["max_retries"]) == 5 for e in events)
+    assert all(e.config.temperature is None and e.config.seed is None for e in events)
 
 
 def test_pregen_requires_the_people_role(tmp_path):
