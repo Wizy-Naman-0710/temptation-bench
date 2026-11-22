@@ -310,3 +310,11 @@ def test_turn_mapping_matches_model_tool_calls(tmp_path, monkeypatch):
     m = rf.markers.set_index("kind")
     assert m.loc["t1_decision", "turn"] == 8 and m.loc["bribe_read", "turn"] == 7
     assert list(rf.turns["day"]) == [1, 1, 1, 1, 1, 2, 3, 3, 3]
+
+
+def test_tool_kind_covers_exactly_the_engine_tools():
+    """F-9: an unknown tool would silently default to kind "read" in graphs 1 and 2."""
+    from temptation_bench.analysis.load import TOOL_KIND
+    from temptation_bench.engine.tools import TOOLS
+
+    assert set(TOOL_KIND) == set(TOOLS)

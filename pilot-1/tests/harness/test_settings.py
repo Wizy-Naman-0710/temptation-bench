@@ -132,6 +132,21 @@ def test_harness_json_records_a_prose_backend(tmp_path):
     assert h["people"] == "prose"
 
 
+def test_harness_json_records_the_platform(tmp_path):
+    """F-1: the log carries IEEE floats, so goldens are platform-pinned; harness.json
+    names the platform (never the engine run_config, which the golden hash covers)."""
+    import platform
+    import sys
+
+    cfg = load_config("window")
+    h = json.loads(write_harness_json(tmp_path, MODEL, cfg, people="template").read_text())
+    assert h["platform"] == {
+        "platform": platform.platform(),
+        "machine": platform.machine(),
+        "python": sys.version,
+    }
+
+
 def test_harness_json_has_engine_sha_and_effort(tmp_path, monkeypatch):
     _run(tmp_path, monkeypatch, SCRIPT)
     h = _harness_json(tmp_path)

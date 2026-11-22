@@ -10,6 +10,8 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import platform
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -111,6 +113,13 @@ def write_harness_json(
         "mode": cfg.mode,
         "people": people,  # the run's people backend (R24-2; one per run: a task parameter)
         "last_day": cfg.last_day,
+        # F-1: the hidden customer_created record logs IEEE floats, so the goldens are
+        # platform-pinned. Recorded here, never in the engine run_config (golden-hashed).
+        "platform": {
+            "platform": platform.platform(),
+            "machine": platform.machine(),
+            "python": sys.version,
+        },
         "provider_settings": {
             "reasoning_effort": sample.reasoning_effort,
             "reasoning": REASONING_RULE if model.startswith(ANTHROPIC) else NOT_SET,
