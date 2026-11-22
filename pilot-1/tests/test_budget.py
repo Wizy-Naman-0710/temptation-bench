@@ -579,22 +579,6 @@ def test_balance_error_keeps_no_original_exception(env, ledger):
     assert ei.value.__context__ is None and ei.value.__cause__ is None
 
 
-def test_record_eval_failed_before_log_counts_the_step_cap(env, ledger):
-    entry = budget.record(
-        "smoke",
-        ["m"],
-        1,
-        0.5,
-        [],
-        balance_before=8.0,
-        error="RuntimeError: died before the log was written",
-        env_path=env,
-        ledger_path=ledger,
-        transport=credits(10.0, 2.0),
-    )
-    assert entry["actual"] == STEP_CAPS["smoke"] and entry["actual_source"] == "cap"
-
-
 def test_record_incomplete_log_counts_the_step_cap(tmp_path, monkeypatch, env, ledger):
     from types import SimpleNamespace
 
@@ -841,3 +825,217 @@ def test_runner_refuses_a_two_model_step_before_any_call(tmp_path, monkeypatch, 
             transport=never_called(),
         )
     assert ledger.read_text() == ""
+
+
+# ---- Task 29 pre-work: --list-models (free metadata call) -----------------------------------
+
+
+def _models_body(request: httpx.Request) -> dict:
+    auth = request.headers["authorization"]
+    return {
+        "object": "list",
+        "data": [
+            {"id": "openai/gpt-6-luna", "owned_by": "x", "echo": auth},
+            {"id": "anthropic/claude-haiku-5-5", "owned_by": "y"},
+            {"id": "qwen/qwen3.7-flash"},
+        ],
+        "request_headers": {"authorization": auth},
+    }
+
+
+def test_list_models_prints_only_the_sorted_ids(env, ledger, capsys):
+    seen: list[httpx.Request] = []
+
+    def handler(request):
+        seen.append(request)
+        return httpx.Response(200, json=_models_body(request), headers={"x-echo": "h"})
+
+    code = run.main(
+        ["--step", "route_check", "--list-models"],
+        env_path=env,
+        ledger_path=ledger,
+        transport=httpx.MockTransport(handler),
+    )
+    out = capsys.readouterr()
+    assert code == 0
+    assert out.out == "anthropic/claude-haiku-5-5\nopenai/gpt-6-luna\nqwen/qwen3.7-flash\n"
+    assert out.err == ""
+    assert len(seen) == 1 and seen[0].method == "GET"
+    assert str(seen[0].url) == f"{BASE}/v1/models"
+    assert seen[0].headers["authorization"] == f"Bearer {FAKE_KEY}"
+    assert ledger.read_text() == ""  # free metadata call: no ledger line, no spend
+
+
+def _echo_cases():
+    def ok_with_key_in_id(request):
+        auth = request.headers["authorization"]
+        return httpx.Response(200, json={"data": [{"id": f"m {auth}"}, {"id": FAKE_KEY}]})
+
+    def unauthorized(request):
+        return httpx.Response(401, text=f"bad key {request.headers['authorization']}")
+
+    def connect(request):
+        raise httpx.ConnectError(f"failed: {request.headers['authorization']}", request=request)
+
+    def not_json(request):
+        return httpx.Response(200, text=f"<html>{request.headers['authorization']}</html>")
+
+    def no_ids(request):
+        return httpx.Response(200, json={"data": [], "echo": request.headers["authorization"]})
+
+    def bad_id(request):
+        auth = request.headers["authorization"]
+        return httpx.Response(200, json={"data": [{"id": 5}], "e": auth})
+
+    return {
+        "ok_with_key_in_id": (ok_with_key_in_id, 0),
+        "unauthorized": (unauthorized, 1),
+        "connect": (connect, 1),
+        "not_json": (not_json, 1),
+        "no_ids": (no_ids, 1),
+        "bad_id": (bad_id, 1),
+    }
+
+
+@pytest.mark.parametrize("case", sorted(_echo_cases()))
+def test_list_models_never_prints_an_echoed_auth_header(case, env, ledger, capsys):
+    handler, want = _echo_cases()[case]
+    code = run.main(
+        ["--step", "route_check", "--list-models"],
+        env_path=env,
+        ledger_path=ledger,
+        transport=httpx.MockTransport(handler),
+    )
+    out = capsys.readouterr()
+    assert code == want
+    for text in (out.out, out.err):
+        assert FAKE_KEY not in text and "xpl_" not in text and "Bearer" not in text
+    if want:
+        assert out.out == "" and out.err.startswith("REFUSED: list models failed")
+    assert ledger.read_text() == ""
+
+
+def test_list_models_error_keeps_no_original_exception(env):
+    def echo(request):
+        raise httpx.ConnectError(f"failed: {request.headers['authorization']}", request=request)
+
+    with pytest.raises(BudgetError) as ei:
+        budget.list_models(env_path=env, transport=httpx.MockTransport(echo))
+    assert ei.value.__context__ is None and ei.value.__cause__ is None
+    assert FAKE_KEY not in "".join(traceback.format_exception(ei.value))
+
+
+def test_list_models_only_on_route_check(env, ledger, capsys):
+    code = run.main(
+        ["--step", "smoke", "--list-models"],
+        env_path=env,
+        ledger_path=ledger,
+        transport=never_called(),
+    )
+    assert code != 0 and "route_check" in capsys.readouterr().err
+
+
+def test_estimate_still_required_without_list_models(env, ledger):
+    with pytest.raises(SystemExit) as ei:
+        run.main(["--step", "smoke"], env_path=env, ledger_path=ledger, transport=never_called())
+    assert ei.value.code != 0
+
+
+def test_list_models_fails_closed_without_env(tmp_path, ledger, capsys):
+    code = run.main(
+        ["--step", "route_check", "--list-models"],
+        env_path=tmp_path / "nope.env",
+        ledger_path=ledger,
+        transport=never_called(),
+    )
+    assert code != 0 and "REFUSED" in capsys.readouterr().err
+
+
+# ---- Task 29 pre-work: G-free dollar check against the stop line ----------------------------
+
+
+def test_gfree_refuses_when_spent_plus_dollar_exposure_is_over_the_stop_line(
+    tmp_path, monkeypatch, env, ledger
+):
+    """The free tier may not apply (the gateway could bill Luna): G-free still passes a $1
+    per-sample cost limit, so spent + runs x limit x 1 attempt must fit the stop line."""
+    _no_eval(monkeypatch)
+    ledger.write_text(_line(actual=8.60))  # 8.60 + 1 x $1.00 x 1 = 9.60 > 9.50
+    with pytest.raises(BudgetError, match="stop line"):
+        run.run_step(
+            "gfree",
+            0.0,
+            token_limit=800_000,
+            log_root=tmp_path,
+            env_path=env,
+            ledger_path=ledger,
+            transport=never_called(),
+        )
+    assert len(ledger.read_text().splitlines()) == 1
+
+
+def test_gfree_dollar_check_uses_one_attempt():
+    plan = run.STEPS["gfree"].plan
+    assert plan.attempts == 1
+    line = run.check_exposure("gfree", plan, 1.0, 800_000, 8.40)  # 8.40 + 1.00 = 9.40 ok
+    assert "free tier" in line and "$1.0000 if billed" in line
+    with pytest.raises(BudgetError, match="stop line"):
+        run.check_exposure("gfree", plan, 1.0, 800_000, 8.51)
+    with pytest.raises(BudgetError, match="unknown"):
+        run.check_exposure("gfree", plan, None, 800_000, 0.0)
+
+
+# ---- Task 29 pre-work: an eval that fails at start is not charged the cap -------------------
+
+
+def test_record_eval_failed_before_log_charges_actual_usage_not_the_cap(env, ledger):
+    """Inspect writes the `.eval` (`log_start`) before any sample runs, so no log means no
+    model call: `actual` is the summed usage (0), raised only by a real balance drop."""
+    err = "PrerequisiteError: cost_limit requires cost data for all models."
+    entry = budget.record(
+        "smoke",
+        ["m"],
+        1,
+        0.5,
+        [],
+        balance_before=8.0,
+        error=err,
+        env_path=env,
+        ledger_path=ledger,
+        transport=credits(10.0, 2.0),  # balance 8.0: unchanged
+    )
+    assert entry["actual"] == 0.0 and entry["actual_source"] == "logs"
+    assert entry["error"] == err
+    dropped = budget.record(
+        "smoke",
+        ["m"],
+        1,
+        0.5,
+        [],
+        balance_before=8.0,
+        error=err,
+        env_path=env,
+        ledger_path=ledger,
+        transport=credits(10.0, 2.25),  # balance 7.75: a real drop still counts
+    )
+    assert dropped["actual"] == pytest.approx(0.25) and dropped["actual_source"] == "balance"
+
+
+def test_runner_prerequisite_error_at_start_records_zero(tmp_path, monkeypatch, env, ledger):
+    from inspect_ai._util.error import PrerequisiteError
+
+    def fail_at_start(*a, **k):
+        raise PrerequisiteError("cost_limit requires cost data for all models.")
+
+    monkeypatch.setattr(run, "inspect_eval", fail_at_start)
+    with pytest.raises(PrerequisiteError):
+        run.run_step(
+            "smoke",
+            0.1,
+            log_root=tmp_path,
+            env_path=env,
+            ledger_path=ledger,
+            transport=credits(),
+        )
+    entry = json.loads(ledger.read_text().splitlines()[-1])
+    assert entry["actual"] == 0.0 and "PrerequisiteError" in entry["error"]

@@ -79,3 +79,64 @@ async def _text(t: str) -> int:
 
 async def _media(m) -> int:
     return count_media_tokens(m)
+
+
+# ---- Task 29 pre-work: durable tiktoken cache, set in-process ------------------------------
+
+
+def test_tiktoken_cache_dir_is_durable_and_set_when_the_counter_loads():
+    import importlib
+    import os
+
+    from temptation_bench.harness import counting
+
+    os.environ.pop("TIKTOKEN_CACHE_DIR", None)
+    importlib.reload(counting)
+    want = counting.TIKTOKEN_CACHE
+    assert os.environ["TIKTOKEN_CACHE_DIR"] == str(want)
+    assert want.parts[-3:] == ("pilot-1", ".cache", "tiktoken") or want.parts[-2:] == (
+        ".cache",
+        "tiktoken",
+    )
+    assert want.is_dir()
+
+
+def test_tiktoken_seed_copies_the_tmp_cache_file_without_network(tmp_path, monkeypatch):
+    from temptation_bench.harness import counting
+
+    src_dir, dst_dir = tmp_path / "data-gym-cache", tmp_path / "durable"
+    src_dir.mkdir()
+    (src_dir / counting.O200K_CACHE_KEY).write_bytes(b"blob")
+    counting.seed_tiktoken_cache(dst_dir, default_dir=src_dir)
+    assert (dst_dir / counting.O200K_CACHE_KEY).read_bytes() == b"blob"
+    (src_dir / counting.O200K_CACHE_KEY).write_bytes(b"new")
+    counting.seed_tiktoken_cache(dst_dir, default_dir=src_dir)  # never overwrites
+    assert (dst_dir / counting.O200K_CACHE_KEY).read_bytes() == b"blob"
+    counting.seed_tiktoken_cache(tmp_path / "other", default_dir=tmp_path / "absent")  # no-op
+    assert not (tmp_path / "other" / counting.O200K_CACHE_KEY).exists()
+
+
+def test_o200k_cache_key_is_tiktokens():
+    import hashlib
+
+    from temptation_bench.harness import counting
+
+    url = "https://openaipublic.blob.core.windows.net/encodings/o200k_base.tiktoken"
+    assert counting.O200K_CACHE_KEY == hashlib.sha1(url.encode()).hexdigest()
+
+
+# ---- Task 29 pre-work: tests block every non-mockllm count_tokens -------------------------
+
+
+def test_conftest_blocks_provider_count_tokens():
+    haiku = get_model("anthropic/claude-haiku-5-5", api_key=FAKE, base_url=BASE)
+    with pytest.raises(AssertionError, match="provider count_tokens"):
+        asyncio.run(haiku.count_tokens(MESSAGES))
+    with pytest.raises(AssertionError, match="provider count_tokens"):
+        asyncio.run(haiku.api.count_tokens(MESSAGES))
+    luna = get_model("openai-api/xpl/gpt-6-luna", api_key=FAKE, base_url=BASE)
+    with pytest.raises(AssertionError, match="provider count_tokens"):
+        asyncio.run(luna.count_tokens(MESSAGES))
+    mock = get_model("mockllm/model")
+    assert asyncio.run(mock.count_tokens(MESSAGES)) > 0  # mockllm still counts
+    assert asyncio.run(LocalCountModel(haiku).count_tokens(MESSAGES)) > 0  # local counter ok

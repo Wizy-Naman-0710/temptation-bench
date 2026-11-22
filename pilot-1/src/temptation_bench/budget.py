@@ -120,6 +120,43 @@ def fetch_balance(
     return bal
 
 
+def models_url(base_url: str) -> str:
+    """`XPL_BASE_URL` (ends in `/v1`) plus `/models`: the gateway's `GET /v1/models`."""
+    return base_url.rstrip("/") + "/models"
+
+
+def list_models(
+    *, env_path: Path | None = None, transport: httpx.BaseTransport | None = None
+) -> list[str]:
+    """The gateway's model ids (`GET {XPL_BASE_URL}/models`), sorted. A free metadata call:
+    no ledger line. Only the `id` strings are kept (each redacted); headers and the rest of
+    the body are never returned or shown. Any HTTP error, non-200, unparsable body, missing
+    or non-string id refuses (`BudgetError`, message without the key)."""
+    key, base = _env(env_path)
+    failure: str | None = None
+    r: httpx.Response | None = None
+    try:
+        with httpx.Client(transport=transport, timeout=TIMEOUT_S, follow_redirects=False) as c:
+            r = c.get(models_url(base), headers={"Authorization": f"Bearer {key}"})
+    except Exception as e:
+        failure = redact(f"list models failed: {type(e).__name__}: {e}", [key])
+    if failure is not None or r is None:  # raised outside the except: no echoing __context__
+        raise BudgetError(failure or "list models failed")
+    if r.status_code != 200:
+        raise BudgetError(f"list models failed: HTTP {r.status_code}")
+    try:
+        body = r.json()
+    except Exception:
+        raise BudgetError("list models failed: response is not JSON") from None
+    items = body.get("data") if isinstance(body, dict) else body
+    if not isinstance(items, list) or not items:
+        raise BudgetError("list models failed: no model list in the response")
+    ids = [m.get("id") if isinstance(m, dict) else None for m in items]
+    if not all(isinstance(i, str) and i for i in ids):
+        raise BudgetError("list models failed: an entry has no string id")
+    return sorted({redact(i, [key]) for i in ids if isinstance(i, str)})
+
+
 # ---- ledger --------------------------------------------------------------------------------
 
 
@@ -263,8 +300,14 @@ def record(
 
     `actual` = Σ total_cost from the logs, raised to the balance drop if that is larger
     (`actual_source: "balance"`), or to the step cap if a log is unreadable or a model has
-    tokens but no price, a log has no final stats, or the eval failed before writing a log
-    (`"cap"`). Over-counting is safe; under-counting is not."""
+    tokens but no price, or a log has no final stats (`"cap"`). Over-counting is safe;
+    under-counting is not.
+
+    An eval that failed before writing a log (e.g. Inspect's `PrerequisiteError` for missing
+    cost data) is NOT charged the cap (Task 29 ruling): Inspect flushes the `.eval` at
+    `log_start`, before any sample runs (`_eval/task/run.py` `task_run`), so no log means no
+    model call. `actual` is then the summed usage (0, or the balance drop if larger), and the
+    redacted `error` is kept on the line."""
     path = Path(ledger_path or LEDGER_PATH)
     if not path.is_file():
         raise BudgetError(f"ledger missing at {path}")
@@ -290,7 +333,6 @@ def record(
         costs["unreadable_logs"]
         or costs["unpriced_models"]
         or incomplete  # a log without final stats (e.g. killed mid-run)
-        or (error is not None and not eval_paths)  # the eval failed before writing a log
     ):
         cap = STEP_CAPS.get(step, STOP_LINE)
         if cap > actual:

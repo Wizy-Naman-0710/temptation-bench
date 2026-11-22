@@ -17,10 +17,47 @@ locally."""
 
 from __future__ import annotations
 
+import os
+import shutil
+import tempfile
+from pathlib import Path
 from typing import Any
 
-from inspect_ai.model import ChatMessage, GenerateConfig, Model, ModelOutput
-from inspect_ai.model._tokens import count_media_tokens, count_text_tokens, count_tokens
+# Task 29 pre-work (rereview 22-26 Minor 5): tiktoken caches `o200k_base` under
+# `$TMPDIR/data-gym-cache` unless `TIKTOKEN_CACHE_DIR` is set, and downloads it again if
+# that cache is cleared (a network call; offline it fails the sample). Pin a durable,
+# git-ignored dir inside pilot-1, set in-process before the counter is first used (tiktoken
+# reads the variable on every load: `tiktoken/load.py` `read_file_cached`). Never set in a
+# shell. The file name is tiktoken's cache key: sha1 of the blob URL.
+TIKTOKEN_CACHE = Path(__file__).resolve().parents[3] / ".cache" / "tiktoken"
+O200K_CACHE_KEY = "fb374d419588a4632f3f557e76b4b70aebbca790"  # sha1(o200k_base URL)
+
+
+def seed_tiktoken_cache(cache_dir: Path, *, default_dir: Path | None = None) -> None:
+    """Create `cache_dir`; if tiktoken's default tmp cache already holds o200k_base, copy it
+    in (plain file copy, no network; never overwrites). tiktoken checks the file's SHA-256
+    on load, so a bad copy is re-fetched rather than used."""
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    src = Path(default_dir or Path(tempfile.gettempdir()) / "data-gym-cache") / O200K_CACHE_KEY
+    dst = cache_dir / O200K_CACHE_KEY
+    if src.is_file() and not dst.exists():
+        tmp = dst.with_name(f".{O200K_CACHE_KEY}.{os.getpid()}.tmp")
+        shutil.copyfile(src, tmp)
+        os.replace(tmp, dst)
+
+
+os.environ["TIKTOKEN_CACHE_DIR"] = str(TIKTOKEN_CACHE)
+try:
+    seed_tiktoken_cache(TIKTOKEN_CACHE)
+except OSError:  # a read-only checkout: tiktoken falls back to downloading into the dir
+    pass
+
+from inspect_ai.model import ChatMessage, GenerateConfig, Model, ModelOutput  # noqa: E402
+from inspect_ai.model._tokens import (  # noqa: E402
+    count_media_tokens,
+    count_text_tokens,
+    count_tokens,
+)
 
 
 async def _text(text: str) -> int:

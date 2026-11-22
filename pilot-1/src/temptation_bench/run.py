@@ -20,6 +20,10 @@ even if the eval raised, because money may have been spent).
   Inspect's token limit meters); before any smoke, none.
 - One model per eval (X-1): run ids, JSONL paths and `harness.json` are per run, not per
   model, so the runner refuses a plan with more than one model.
+- The free-tier branch also refuses if spent + runs x sample cost limit x attempts is over
+  the stop line, in case the gateway bills the model after all (Task 29 pre-work).
+- `--step route_check --list-models` (Task 29): `GET /v1/models`, prints only the sorted
+  ids. A free metadata call: no guard, no ledger line, no `--estimate` needed.
 - G-free runs with `retry_on_error=0` (a connectivity check, rerun by hand; round 1b ruling),
   so 1 run x 800k x 1 attempt fits its free tier.
 - `retry_on_error=1` (every other step): a sample that ends in error is rerun once with the
@@ -245,7 +249,21 @@ def check_exposure(
                 f"{step} worst case {tokens} tokens ({how}) is over the free tier of {free} "
                 "tokens/day; lower --token-limit"
             )
-        return f"$0 within the free tier ({tokens} of {free} free-tier tokens: {how})"
+        # Task 29 pre-work: if the free tier does not apply (the gateway bills the model),
+        # the per-sample cost limit is the bound, so it must still fit the stop line.
+        billed = exposure(plan, sample_cost_limit)
+        if billed is None:
+            raise BudgetError(f"{step} worst case if billed is unknown (no per-sample cost limit)")
+        bhow = f"{plan.runs} runs x ${sample_cost_limit:.4f} x {plan.attempts} attempts"
+        if spent + billed > STOP_LINE:
+            raise BudgetError(
+                f"spent ${spent:.4f} + {step} worst case if billed ${billed:.4f} ({bhow}) is "
+                f"over the ${STOP_LINE:.2f} stop line"
+            )
+        return (
+            f"$0 within the free tier ({tokens} of {free} free-tier tokens: {how}); "
+            f"${billed:.4f} if billed ({bhow})"
+        )
     e = exposure(plan, sample_cost_limit)
     if e is None:
         raise BudgetError(f"{step} worst-case exposure is unknown (no per-sample cost limit)")
@@ -390,6 +408,26 @@ def run_step(
     return entry
 
 
+def list_models_cli(
+    step: str, *, env_path: Path | None = None, transport: httpx.BaseTransport | None = None
+) -> int:
+    """`--step route_check --list-models`: `GET /v1/models`, print only the sorted ids. A
+    free metadata call (no model call, no spend), so it skips the guard and writes no ledger
+    line. Fails closed with a redacted message."""
+    try:
+        if step != "route_check":
+            raise RunnerError("--list-models runs only with --step route_check")
+        ids = budget.list_models(env_path=env_path, transport=transport)
+    except (BudgetError, RunnerError) as e:
+        print(f"REFUSED: {budget.redact(str(e))}", file=sys.stderr)
+        return 1
+    except Exception as e:
+        print(f"FAILED: {budget.redact(type(e).__name__)}", file=sys.stderr)
+        return 1
+    print("\n".join(ids))
+    return 0
+
+
 def main(
     argv: Sequence[str] | None = None,
     *,
@@ -402,11 +440,20 @@ def main(
 ) -> int:
     ap = argparse.ArgumentParser(prog="python -m temptation_bench.run")
     ap.add_argument("--step", required=True, choices=list(STEP_CAPS))
-    ap.add_argument("--estimate", required=True, type=float, help="$; must cover one rerun")
+    ap.add_argument("--estimate", type=float, default=None, help="$; must cover one rerun")
     ap.add_argument("--token-limit", type=int, default=None)
     ap.add_argument("--sample-cost-limit", type=float, default=None)
     ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument(
+        "--list-models",
+        action="store_true",
+        help="route_check only: print the gateway's model ids (free metadata call) and exit",
+    )
     args = ap.parse_args(argv)
+    if args.list_models:
+        return list_models_cli(args.step, env_path=env_path, transport=transport)
+    if args.estimate is None:
+        ap.error("--estimate is required (except with --list-models)")
     try:
         run_step(
             args.step,
