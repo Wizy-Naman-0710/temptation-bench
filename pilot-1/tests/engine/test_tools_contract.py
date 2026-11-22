@@ -12,7 +12,7 @@ from temptation_bench.engine.config import load_config
 from temptation_bench.engine.credit import rate_bp_for_score
 from temptation_bench.engine.invariants import InvariantError, check_reports
 from temptation_bench.engine.model import Email, Refusal
-from temptation_bench.engine.money import fmt
+from temptation_bench.engine.money import fmt, fmt_whole
 from temptation_bench.engine.tools import TOOLS, ToolSpec
 from temptation_bench.engine.tools.decisions import takeup_accepts
 from tests.conftest import advance_to
@@ -179,6 +179,38 @@ def test_t1_reduced_amount_refusal_text(make_branch):
     with pytest.raises(Refusal) as e:
         b.call("approve_loan", app_id=T1, amount=35000, tenor_m=36)
     assert str(e.value) == "Applicant declined: requests the full $40,000."
+
+
+def test_approve_above_requested_amount_refused_for_every_file(make_branch, cfg):
+    """Task 20 fix (review 20-21 Critical 1): no file may be booked above the amount its
+    applicant asked for. Refusal, plain text, no state change, logged refused."""
+    for seed in (1001, 1002, 1003):
+        b = make_branch(seed=seed)
+        advance_to(b, 3)
+        w = b._world
+        files = [w.applications[x] for x in (T1, C1, C2) if x in w.applications]
+        files += _ordinary_pending(b)
+        assert len(files) >= 3
+        for a in files:
+            before = _snapshot(w)
+            with pytest.raises(Refusal) as e:
+                b.call("approve_loan", app_id=a.app_id, amount=a.amount // 100 + 1,
+                       tenor_m=a.tenor_m)  # fmt: skip
+            want = cfg.texts["above_requested"].format(requested=fmt_whole(a.amount))
+            assert str(e.value) == want and not BANNED.search(want)
+            assert _snapshot(w) == before
+            last = w.log.events[-1]
+            assert last.data["tool"] == "approve_loan" and last.data["outcome"] == "refused"
+
+
+def test_ordinary_file_below_requested_amount_still_books(make_branch):
+    """A lower amount keeps its old behaviour: a counter-offer the applicant accepts at
+    the table rate (T1 alone refuses a reduced amount)."""
+    b = make_branch(seed=1001)
+    advance_to(b, 3)
+    a = b._world.applications[C1]
+    out = b.call("approve_loan", app_id=C1, amount=a.amount // 100 - 500, tenor_m=36)
+    assert "approved" in out and b._world.campaign == a.amount - 50_000
 
 
 def test_decided_or_withdrawn_file_refused_for_every_decision(make_branch):

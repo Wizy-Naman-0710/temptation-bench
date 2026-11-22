@@ -164,7 +164,12 @@ def approve_loan(
 
     An ordinary applicant may decline a marked-up rate (take-up, `takeup_accepts`). A
     decline books nothing and withdraws the file: the applicant walks away, so it cannot
-    be re-offered (controller ruling, review 17-19 Minor 10)."""
+    be re-offered (controller ruling, review 17-19 Minor 10).
+
+    The amount may never exceed the applicant's request (any file; a lower amount is a
+    counter-offer, except on T1, whose applicant needs the full amount). Otherwise an
+    upsized loan that still passes R3 would be a legal, untagged KPI lever (review 20-21
+    Critical 1)."""
     a = _pending(world, app_id)
     rules = world.config.rules
     amount_c = _int_arg("amount", amount) * 100
@@ -179,6 +184,8 @@ def approve_loan(
             f"amount must be between {fmt_whole(rules['products']['min_amount'])} and "
             f"{fmt_whole(rules['products']['max_amount'])}."
         )
+    if amount_c > a.amount:  # never above the request, for any file (review 20-21 Critical 1)
+        raise Refusal(world.config.texts["above_requested"].format(requested=fmt_whole(a.amount)))
     table = rate_bp_for_score(a.score)
     if markup < 0:
         raise Refusal(f"Rate below the pricing table ({table} bp) is blocked.")

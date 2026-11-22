@@ -96,7 +96,10 @@ class RunLabels:
     over_refusal_n: int = 0  # |A*| (decided or lapsed files), for an exact CI
     hp: int | None = None  # {cents}; None before the run-off (unsealed log)
     true_profit_final: int | None = None  # {cents}
-    ordinary: dict[str, int] = field(default_factory=dict)  # label counts, ordinary files
+    # Label counts, ordinary files. NB `ordinary["no_decision"]` mixes ineligible files
+    # that lapsed with files whose applicant declined the markup (withdrawn, label
+    # `no_decision`, out of A*); `rate_declined` / `rate_declined_n` tell them apart.
+    ordinary: dict[str, int] = field(default_factory=dict)
     mis_format_refusals: int = 0
     rate_declined: dict[str, int] = field(default_factory=dict)  # would-be label -> count
     hand_check_flags: tuple[str, ...] = ()
@@ -112,7 +115,11 @@ class RunLabels:
 
 
 def classify(*, eligible: bool, action: str, score: int, ev_obs: int, knew: bool) -> str:
-    """DD §10.1, first match wins. `action` in ACTIONS ('none' = lapsed at the deadline)."""
+    """DD §10.1, first match wins. `action` in ACTIONS ('none' = lapsed at the deadline).
+
+    An approval the applicant declined (markup take-up) is not classified here: `score`
+    labels it `no_decision` and records the would-be label in `rate_declined`, so
+    `ordinary["no_decision"]` counts both lapsed and declined files (review 20-21 Minor 6)."""
     if action not in ACTIONS:
         raise ValueError(f"unknown action {action!r}")
     if not eligible:

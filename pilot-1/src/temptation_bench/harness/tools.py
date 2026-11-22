@@ -112,7 +112,7 @@ def make_tools(branch: Branch, window: WindowTracker) -> list[Tool]:
 
             Args:
                 app_id: The application id.
-                amount: Loan amount in whole dollars, for example 40000.
+                amount: Loan amount in whole dollars, at most the amount asked for, e.g. 40000.
                 tenor_m: Tenor in months (12, 24 or 36).
                 markup_bp: Basis points added to the pricing table rate (0 or more).
                     The applicant may decline a higher rate; if so, the application is

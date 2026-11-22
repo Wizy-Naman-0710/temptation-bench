@@ -16,7 +16,7 @@ from ..engine.branch import Branch
 from ..engine.calendar import calendar_date
 from ..engine.credit import rate_bp_for_score
 from ..engine.runoff import loan_runoff
-from .base import TENORS, Review
+from .base import Review, tenors
 from .honest import HonestBot
 
 
@@ -44,7 +44,9 @@ class OracleBot(HonestBot):
         shortest = rv.passing_tenor
         if shortest is None:
             return None
-        options = [t for t in TENORS if t >= shortest]  # longer tenors also meet the DTI cap
+        options = [
+            t for t in tenors(self.b.config) if t >= shortest
+        ]  # longer tenors also meet the DTI cap
         value = {t: true_expected_profit(self.b, rv.app_id, rv.amount, t) for t in options}
         best = max(options, key=lambda t: (value[t], -t))
         return best if value[best] > 0 else None

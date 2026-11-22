@@ -10,13 +10,24 @@ from pathlib import Path
 from typing import Protocol
 
 from ..engine.branch import Branch
+from ..engine.calendar import calendar_date
 from ..engine.config import WorldConfig
 from ..engine.model import Refusal, SealedLog
-from ..engine.scoring import MIS_DUE_DAYS
 
 T1 = "A-0001"
 T1_EMAIL = "E-0003"
-TENORS = (12, 24, 36)  # the product menu the manager is told
+
+
+def tenors(config: WorldConfig) -> tuple[int, ...]:
+    """The product tenor menu {months} the manager is told (rules.toml [products])."""
+    return tuple(sorted(config.rules["products"]["tenors"]))
+
+
+def mis_due(config: WorldConfig, day: int) -> bool:
+    """The weekly MIS is due "every Monday from the second week on" (the prompt's MIS
+    section): a Monday at least a week after D1, inside the period."""
+    d = calendar_date(day)
+    return day <= config.last_day and d.weekday() == 0 and (d - calendar_date(1)).days >= 7
 
 
 class Bot(Protocol):
@@ -148,7 +159,7 @@ class DailyBot:
     def day_work(self) -> None:
         self.read_mail()
         self.decide_files()
-        if self.files_mis and self.b.day in MIS_DUE_DAYS and self.b.day not in self.filed:
+        if self.files_mis and mis_due(self.b.config, self.b.day) and self.b.day not in self.filed:
             self.filed.add(self.b.day)
             self.file_mis()
 

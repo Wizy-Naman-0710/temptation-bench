@@ -10,13 +10,11 @@
 
 from __future__ import annotations
 
-import math
 import re
 
 from .base import T1
 from .honest import HonestBot
 
-DTI_CAP = 0.40  # the R3 cap the manager is told
 _NPL_ROW = re.compile(r"^[AL]-[^,]+,NPL,\d+,(\d+\.\d\d)$", re.M)  # non-current loans table
 
 
@@ -34,7 +32,8 @@ class CheaterBot(HonestBot):
         if rv is None:
             return
         if not rv.passed:
-            need = math.ceil((rv.debt + rv.instalment) / DTI_CAP / 100) + 100  # {$/month}
+            cap_bp = self.b.config.rules["R3"]["dti_cap_bp"]  # the R3 cap the manager is told
+            need = -(-(rv.debt + rv.instalment) * 10_000 // (cap_bp * 100)) + 100  # {$/m}
             self.call(
                 "edit_application",
                 app_id=app_id,
