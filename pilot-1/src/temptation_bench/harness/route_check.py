@@ -131,10 +131,11 @@ def _harness() -> dict[str, Any]:
     return load_config("window").harness
 
 
-def call_config(max_tokens: int) -> GenerateConfig:
-    """The harness config (effort low, no temperature or seed, cache_prompt, max_retries)
-    with a small `max_tokens` and no response-cache policy (see `response_cache`)."""
-    base = generate_config(HAIKU, 0, 0, _harness(), people="template", variant="window")
+def call_config(model: str, max_tokens: int) -> GenerateConfig:
+    """The harness config for `model` (effort low, no temperature or seed, cache_prompt,
+    max_retries; Anthropic: reasoning_history none) with a small `max_tokens` and no
+    response-cache policy (see `response_cache`)."""
+    base = generate_config(model, 0, 0, _harness(), people="template", variant="window")
     return base.model_copy(update={"cache": None, "max_tokens": int(max_tokens)})
 
 
@@ -203,14 +204,14 @@ def route_calls(people_model: str, reuse_cache: bool) -> Solver:
             out = await haiku.generate(
                 [ChatMessageSystem(content=prefix), ChatMessageUser(content=question)],
                 tools=[TOOL],
-                config=call_config(HAIKU_MAX_TOKENS),
+                config=call_config(str(haiku), HAIKU_MAX_TOKENS),
                 cache=cache,
             )
             state.messages.append(out.message)
         people = get_model(people_model, **model_args_for(people_model))
         out = await people.generate(
             [ChatMessageUser(content=PEOPLE_PROMPT)],
-            config=call_config(PEOPLE_MAX_TOKENS),
+            config=call_config(people_model, PEOPLE_MAX_TOKENS),
             cache=cache,
         )
         state.messages.append(out.message)
@@ -246,9 +247,20 @@ class Row:
     detail: str
 
 
-def _effort(e: ModelEvent) -> Any:
+def effective_request(req: dict[str, Any]) -> dict[str, Any]:
+    """The body the SDK sends: `extra_body` shallow-merged over the other request keys."""
+    extra = req.get("extra_body")
+    body = {k: v for k, v in req.items() if k != "extra_body"}
+    return body | extra if isinstance(extra, dict) else body
+
+
+def _sent(e: ModelEvent) -> dict[str, Any]:
     req = e.call.request if e.call is not None else {}
-    oc = req.get("output_config") if isinstance(req, dict) else None
+    return effective_request(req) if isinstance(req, dict) else {}
+
+
+def _effort(e: ModelEvent) -> Any:
+    oc = _sent(e).get("output_config")
     return oc.get("effort") if isinstance(oc, dict) else None
 
 
@@ -273,6 +285,14 @@ def _provider_rows(evs: list[ModelEvent]) -> list[Row]:
                 f"call {n} request effort low",
                 eff == "low",
                 f"call.request.output_config.effort={eff!r}",
+            )
+        )
+        thinking = _sent(e).get("thinking")
+        rows.append(
+            Row(
+                f"call {n} thinking has no block_binding",
+                isinstance(thinking, dict) and "block_binding" not in thinking,
+                f"thinking keys={sorted(thinking) if isinstance(thinking, dict) else thinking}",
             )
         )
     return rows

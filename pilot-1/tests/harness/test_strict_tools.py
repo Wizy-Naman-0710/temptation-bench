@@ -56,7 +56,9 @@ def test_runner_builds_luna_with_strict_tools_off(tmp_path, monkeypatch, make_br
     _assert_all_non_strict(seen["model"].api, _tool_infos(make_branch))
 
 
-def test_runner_leaves_the_anthropic_route_unchanged(tmp_path, monkeypatch):
+def test_runner_anthropic_route_gets_only_the_thinking_override(tmp_path, monkeypatch):
+    """Task 30 fix: no strict-tools arg on the Anthropic route, only the thinking override
+    (`tests/harness/test_block_binding.py`)."""
     seen = {}
 
     def fake_eval(task, *, model, model_args, **kw):
@@ -64,7 +66,8 @@ def test_runner_leaves_the_anthropic_route_unchanged(tmp_path, monkeypatch):
 
     monkeypatch.setattr(run, "inspect_eval", fake_eval)
     run.launch_task_eval(run.Ctx("smoke", run.STEPS["smoke"].plan, tmp_path, 0.5, None))
-    assert seen["args"] == {} and model_args_for(run.HAIKU) == {}
+    want = {"extra_body": {"thinking": {"type": "adaptive"}}}
+    assert seen["args"] == want == model_args_for(run.HAIKU)
 
 
 def test_pregen_people_model_has_strict_tools_off(monkeypatch, make_branch):

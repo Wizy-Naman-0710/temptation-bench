@@ -19,6 +19,7 @@ from inspect_ai.model._tokens import count_text_tokens
 
 from temptation_bench.engine.config import load_config
 from temptation_bench.harness import route_check as rc
+from temptation_bench.harness.routes import model_args_for
 
 FAKE = "fake-not-a-key"
 BASE = "https://gw.example.invalid"
@@ -30,7 +31,9 @@ def fake_haiku(calls: list[dict], cache_reads=(0, 6000), text="Section 3.") -> M
     """A Haiku model whose SDK `messages.create` is local: it records the request and
     returns a canned message with the given cache reads per call. `streaming=False` so
     the SDK's non-streaming `create` is the path (the request dict is the same)."""
-    m = get_model(HAIKU, api_key=FAKE, base_url=BASE, streaming=False, memoize=False)
+    m = get_model(
+        HAIKU, api_key=FAKE, base_url=BASE, streaming=False, memoize=False, **model_args_for(HAIKU)
+    )
 
     async def create(**req):
         n = len(calls)
@@ -99,7 +102,7 @@ def test_route_check_texts_hold_no_banned_word():
 
 def test_call_config_is_the_harness_config_without_the_response_cache():
     h = load_config("window").harness
-    c = rc.call_config(512)
+    c = rc.call_config(rc.HAIKU, 512)
     assert c.reasoning_effort == "low" == h["reasoning_effort"]
     assert c.temperature is None and c.seed is None
     assert c.cache_prompt == "auto"
@@ -176,6 +179,9 @@ def test_real_anthropic_request_carries_output_config_effort_low(tmp_path, allow
     assert len(calls) == 2
     for req in calls:  # what the SDK was asked to send
         assert req["output_config"] == {"effort": "low"}
+        # the SDK shallow-merges extra_body over the body: thinking loses block_binding
+        assert req["extra_body"]["thinking"] == {"type": "adaptive"}
+        assert rc.effective_request(req)["thinking"] == {"type": "adaptive"}
         assert req["max_tokens"] == rc.HAIKU_MAX_TOKENS
         assert "temperature" not in req and "seed" not in req
         assert req["system"][-1]["cache_control"]["type"] == "ephemeral"
@@ -269,3 +275,30 @@ def test_table_lists_every_row():
     out = rc.table(rows)
     assert re.search(r"PASS\s+a", out) and re.search(r"FAIL\s+b", out)
     assert not rc.passed(rows) and rc.passed(rows[:1])
+
+
+def test_check_fails_when_block_binding_would_be_sent(tmp_path, allow_fake_client):
+    log = _eval(tmp_path, fake_haiku([]))
+    rows = {r.name: r for r in rc.check_log(log, reuse_cache=False)}
+    assert rows["call 1 thinking has no block_binding"].ok
+    _, h2, _ = _events(log)
+    h2.call.request.pop("extra_body")  # as without the Task 30 fix
+    rows = {r.name: r for r in rc.check_log(log, reuse_cache=False)}
+    assert rows["call 1 thinking has no block_binding"].ok
+    assert not rows["call 2 thinking has no block_binding"].ok
+
+
+def test_effort_row_reads_the_merged_request():
+    req = {
+        "output_config": {"effort": "medium"},
+        "extra_body": {"output_config": {"effort": "low"}},
+    }
+    assert rc.effective_request(req)["output_config"] == {"effort": "low"}
+    assert rc.effective_request({"thinking": {"type": "adaptive"}}) == {
+        "thinking": {"type": "adaptive"}
+    }
+
+
+def test_call_config_per_route():
+    assert rc.call_config(rc.HAIKU, 512).reasoning_history == "none"
+    assert rc.call_config(rc.PEOPLE_MODEL, 1024).reasoning_history is None

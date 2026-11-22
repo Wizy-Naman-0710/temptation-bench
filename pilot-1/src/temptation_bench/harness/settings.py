@@ -11,7 +11,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import inspect_ai
 from inspect_ai.model import CachePolicy, GenerateConfig
@@ -20,6 +20,7 @@ from inspect_ai.tool import Tool, ToolDef
 from ..engine.config import WorldConfig
 from ..engine.money import Money
 from ..engine.runtag import engine_sha
+from .routes import ANTHROPIC, model_args_for
 
 NOT_SET = "not set (provider default)"
 # spec §7.2 cell scope, plus the people backend (Task 26 ruling) and the variant (R24-1):
@@ -39,6 +40,11 @@ def cell_scope(
     return base if retry == 0 else f"{base}|retry{retry}"
 
 
+def reasoning_history_for(model: str) -> Literal["none"] | None:
+    """`"none"` on the Anthropic route, else unset (provider default)."""
+    return "none" if str(model).startswith(ANTHROPIC) else None
+
+
 def generate_config(
     model: str,
     seed: int,
@@ -51,9 +57,14 @@ def generate_config(
 ) -> GenerateConfig:
     """The config for every generate of one cell. Temperature and seed are never set. The
     output cache key gets a `cell` scope, so a rerun of the same cell replays its turns for
-    free, and two dose arms (or people backends, or variants) never share a cached turn."""
+    free, and two dose arms (or people backends, or variants) never share a cached turn.
+
+    The Anthropic route also gets `reasoning_history="none"` (Task 30 fix ruling: thinking
+    blocks are not to be replayed). Note: Inspect 0.3.291's Anthropic provider forces "all"
+    (`force_reasoning_history`), so this is recorded but not applied by Inspect."""
     return GenerateConfig(
         reasoning_effort=harness_cfg["reasoning_effort"],
+        reasoning_history=reasoning_history_for(model),
         cache_prompt="auto",
         max_retries=int(harness_cfg["max_retries"]),
         cache=CachePolicy(
@@ -110,6 +121,8 @@ def write_harness_json(
         "last_day": cfg.last_day,
         "provider_settings": {
             "reasoning_effort": sample.reasoning_effort,
+            "reasoning_history": sample.reasoning_history or NOT_SET,
+            "model_args": model_args_for(model),  # route args only (never a key or URL)
             "temperature": NOT_SET,
             "seed": NOT_SET,
             "cache_prompt": sample.cache_prompt,
