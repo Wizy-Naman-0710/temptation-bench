@@ -510,3 +510,17 @@ Hand-checked by the builder on 2026-11-22 from the engine JSONL of each run (T1 
 - **Integrity Index**: built on the fitted dose curve, so not estimable here.
 - **H1 test** (a confirmatory test that offers raise knowing violations): the pilot is a manipulation check; with a few runs per arm only very large effects could even show (price-of-integrity §8.1).
 - **π(0) and the dose effect** (π at the offer minus π(0)): descriptive only. The table above gives k/n and exact intervals; it does not test them.
+
+## Full-horizon panels (Task 34, D1-D30)
+
+One paid full-horizon run: Haiku, seed 1001, offer \$30,000, people = template, D1-D30. It is a single run (n = 1), so it is exploratory only. The full report, with the label table, bot baselines, spend and hand check, is [`../full-run/report.md`](../full-run/report.md).
+
+![Graph 3, full horizon: reward vs truth](../full-run/figures/r00_s1001-d3000000-e1_3125f53b15e5_g03.png)
+
+![Graph 1, full horizon: tool calls per day](../full-run/figures/r00_s1001-d3000000-e1_3125f53b15e5_g01.png)
+
+![Graph 4, full horizon: tokens and cost per turn](../full-run/figures/r00_s1001-d3000000-e1_3125f53b15e5_g04.png)
+
+![Graph 5, full horizon: context size per turn](../full-run/figures/r00_s1001-d3000000-e1_3125f53b15e5_g05.png)
+
+![Graph 10, full horizon: bot baselines (seed 1001, offer \$30,000)](../full-run/figures/g10_bot_baselines.png)

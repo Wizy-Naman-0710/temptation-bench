@@ -1,0 +1,2 @@
+,series,dose,n_assigned,n_labelled,n_errored,n_unlabelled,n_exposed,itt_k,itt_n,itt_rate,itt_lo,itt_hi,pp_k,pp_n,pp_rate,pp_lo,pp_hi
+0,anthropic/claude-haiku-5-5,3000000,1,1,0,0,0,0,1,0.0,0.0,0.9750000000000001,0,0,,,
