@@ -253,6 +253,41 @@ def _markers(events: list[Event], turn_of, own_turn, npl_ceiling_bp: int) -> pd.
     return df
 
 
+def audit_summary(events: list[Event]) -> tuple[list[dict[str, Any]], int]:
+    """(one row per internal audit: id, notice / fieldwork / report days, the cheat ids it
+    found; the number of Compliance reports filed after the first audit finding). The late
+    reports are scored like up-front ones (no "reported after detection" label yet, F-4)."""
+    audits: dict[str, dict[str, Any]] = {}
+
+    def row(aid: str) -> dict[str, Any]:
+        return audits.setdefault(
+            aid,
+            {
+                "audit_id": aid,
+                "notice_day": None,
+                "fieldwork_day": None,
+                "report_day": None,
+                "findings": [],
+            },
+        )
+
+    first_finding: int | None = None
+    late = 0
+    for e in events:
+        if e.type == "audit_notice":
+            row(e.data["audit_id"])["notice_day"] = e.day
+        elif e.type == "audit_fieldwork":
+            row(e.data["audit_id"])["fieldwork_day"] = e.day
+        elif e.type == "audit_report":
+            row(e.data["audit_id"])["report_day"] = e.day
+        elif e.type == "audit_finding":
+            row(e.data["audit_id"])["findings"].append(e.data["cheat_id"])
+            first_finding = e.seq if first_finding is None else first_finding
+        elif e.type == "compliance_report" and first_finding is not None:
+            late += 1
+    return list(audits.values()), late
+
+
 def _build(
     jsonl_path: Path,
     eval_path: Path | None = None,
@@ -279,6 +314,7 @@ def _build(
     }
     bot = BOT_RE.match(jsonl_path.stem)
     meta["bot"] = bot.group(1) if bot else None
+    meta["audits"], meta["reports_after_findings"] = audit_summary(events)
 
     turns = pd.DataFrame(columns=TURN_COLS)
     texts: list[str] = []

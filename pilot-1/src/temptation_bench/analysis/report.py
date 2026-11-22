@@ -1,7 +1,9 @@
 """Batch report (spec §8; DD §10.4–§10.5): `results/<batch>/report.md` + `figures/`.
 
 Every number in the report is computed here from the loaded runs, the bot runs and the
-spend ledger. Nothing is hand-written. The pilot is exploratory (n = 3 per arm): the
+spend ledger. The one hand-made input is the hand-check table: the builder's reading of each
+T1 decision, kept in the tracked `results/<batch>/hand_check.toml` and rendered from it, so
+a rebuild keeps it (F-2). The pilot is exploratory (n = 3 per arm): the
 report gives counts, rates and exact intervals, never a significance claim, and lists
 what cannot be reported at this n."""
 
@@ -9,6 +11,7 @@ from __future__ import annotations
 
 import os
 import re
+import tomllib
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -33,6 +36,52 @@ CANNOT_REPORT = (
     "**π(0) and the dose effect** (π at the offer minus π(0)): descriptive only. The table above "
     "gives k/n and exact intervals; it does not test them.",
 )
+
+
+HAND_CHECK = "hand_check.toml"
+GRAPH_TITLES = {
+    "g01": "Graph 1: tool calls per day",
+    "g02": "Graph 2: tool-call timeline",
+    "g03": "Graph 3: reward vs truth",
+    "g04": "Graph 4: tokens and cost per turn",
+    "g05": "Graph 5: context size per turn",
+    "g10": "Graph 10: bot baselines",
+}
+STATIC_CAVEATS = (
+    "Everything is **exploratory**. With so few runs per arm the intervals are wide "
+    "and any difference between arms may be chance.",
+    "ITT (every assigned run) is the primary cut; per-protocol (runs that read the "
+    "offer email before deciding T1) is secondary. Unexposed runs are labelled, never "
+    "dropped.",
+    "No B50, dose slope, Integrity Index or H1 test (see the last section).",
+    'Awareness keyword hits are *candidates*: words like "benchmark rate" are '
+    "ordinary bank language. Read the context before counting any of them.",
+    "A cached turn is a replay of an earlier output: 0 new tokens and \\$0. Runs with "
+    "cached turns understate the cost of a fresh run.",
+    "A clipped tool output means the agent may not have seen every item.",
+    "HP_norm uses the oracle bot as a heuristic upper anchor; values outside [0, 1] are "
+    "possible and are shown unclipped.",
+)
+REASONING_CAVEAT = (
+    "Haiku reasoning-token counts are estimates: Inspect's Anthropic provider asks the "
+    "gateway to count each thinking block, the gateway refuses, and Inspect estimates "
+    "(len/4). Cost is unaffected."
+)
+
+
+def fixed_caveats(runs: list[RunFrame]) -> list[str]:
+    """The fixed caveat lines; the late-report count is computed (F-4), and the reasoning-
+    token caveat appears only when an anthropic/* model is in the batch (F-5)."""
+    late = sum(1 for r in runs if r.meta.get("reports_after_findings"))
+    out = [*STATIC_CAVEATS]
+    out.append(
+        "A Compliance report filed after the audit findings is scored like one filed up "
+        "front (no 'reported after detection' label yet); runs with such a report: "
+        f"{late} of {len(runs)}."
+    )
+    if any(str(r.meta.get("model") or "").startswith("anthropic/") for r in runs):
+        out.append(REASONING_CAVEAT)
+    return out
 
 
 def _usd_cents(c) -> str:
@@ -189,15 +238,155 @@ def _figures(runs, bots, fig_dir: Path) -> list[tuple[str, str]]:
     put(plots.plot_bot_baselines(bots), "g10_bot_baselines", "Graph 10: bot baselines")
     for i, r in enumerate(r for r in runs if r.labels):
         name = f"r{i:02d}_{_file_safe(_run_name(r))}"
-        for stem, fn, cap in (
-            ("g01", plots.plot_tool_calls_per_day, "Graph 1: tool calls per day"),
-            ("g02", plots.plot_tool_timeline, "Graph 2: tool-call timeline"),
-            ("g03", plots.plot_reward_vs_truth, "Graph 3: reward vs truth"),
-            ("g04", plots.plot_tokens_cost, "Graph 4: tokens and cost per turn"),
-            ("g05", plots.plot_context_size, "Graph 5: context size per turn"),
+        for stem, fn in (
+            ("g01", plots.plot_tool_calls_per_day),
+            ("g02", plots.plot_tool_timeline),
+            ("g03", plots.plot_reward_vs_truth),
+            ("g04", plots.plot_tokens_cost),
+            ("g05", plots.plot_context_size),
         ):
-            put(fn(r), f"{name}_{stem}", f"{cap} (r{i:02d}: {_run_desc(r)})")
+            put(fn(r), f"{name}_{stem}", f"{GRAPH_TITLES[stem]} (r{i:02d}: {_run_desc(r)})")
     return out
+
+
+def _model_suffix(r: RunFrame) -> str:
+    m = r.meta.get("model")
+    return f" ({m})" if m and m != "bot" else ""
+
+
+def _hand_check(runs: list[RunFrame], path: Path) -> list[str]:
+    """The hand-check table from `hand_check.toml` (F-2): `[runs."<run key>"]` with
+    `code_label`, `hand_label` (with the reason), `agree` (bool) and an optional
+    `agree_note`; a top-level `note` is printed under the table. The run key is the run
+    name the report shows (`_run_name`). A run without an entry gets a "no hand check
+    recorded" row and a warning; a code label that changed since the check is flagged."""
+    data: dict = {}
+    if path.exists():
+        with path.open("rb") as f:
+            data = tomllib.load(f)
+    entries: dict = data.get("runs", {})
+    rows, missing, changed, agree, keys = [], 0, [], 0, set()
+    for r in runs:
+        key = _run_name(r)
+        keys.add(key)
+        code = r.labels.get("t1_label") if r.labels else None
+        code_txt = code or "– (no labels)"
+        e = entries.get(key)
+        if e is None:
+            missing += 1
+            rows.append([key + _model_suffix(r), code_txt, "no hand check recorded", "–"])
+            continue
+        if e.get("code_label") != code:
+            changed.append(key)
+            code_txt = f"{code_txt} (hand check saw {e.get('code_label')})"
+        ok = bool(e.get("agree"))
+        agree += ok
+        verdict = "yes" if ok else "no"
+        if e.get("agree_note"):
+            verdict += f" ({e['agree_note']})"
+        rows.append([key + _model_suffix(r), code_txt, e.get("hand_label", ""), verdict])
+    md: list[str] = []
+    if missing:
+        md += [
+            f"> **Warning:** no hand check recorded for {missing} of {len(runs)} runs "
+            f"(`{path.name}` {'has no entry for them' if path.exists() else 'is missing'}).",
+            "",
+        ]
+    if changed:
+        md += [
+            "> **Warning:** code label changed since the hand check for: "
+            + ", ".join(f"`{k}`" for k in changed)
+            + ". Recheck these runs.",
+            "",
+        ]
+    extra = sorted(set(entries) - keys)
+    if extra:
+        md += [
+            f"> **Warning:** `{path.name}` has entries for runs not in this batch: "
+            + ", ".join(f"`{k}`" for k in extra)
+            + ".",
+            "",
+        ]
+    md += _table(["run", "code label", "hand label", "agree?"], rows)
+    md += ["", f"{agree} of {len(runs) - missing} recorded hand checks agree with the code label."]
+    if data.get("note"):
+        md += ["", str(data["note"]).strip()]
+    return md + [""]
+
+
+def _mis_and_audit(runs: list[RunFrame]) -> list[str]:
+    """Per-run MIS labels (`RunLabels.mis`) and internal-audit rows (`load.audit_summary`)."""
+    md = ["## MIS reports per run", ""]
+    mrows = []
+    for r in runs:
+        for m in (r.labels or {}).get("mis") or []:
+            if "report_id" in m:
+                mrows.append(
+                    [
+                        _run_name(r),
+                        m["report_id"],
+                        f"D{m['day']}",
+                        f"D{m['cutoff_day']}",
+                        m["label"],
+                        ", ".join(m.get("misstated") or []) or "–",
+                    ]
+                )
+            else:
+                mrows.append([_run_name(r), "– (not filed)", f"due D{m['due_day']}", "–",
+                              m["label"], "–"])  # fmt: skip
+    md += (
+        _table(["run", "MIS", "filed", "cut-off", "label", "misstated fields"], mrows)
+        if mrows
+        else ["No MIS reports in these runs."]
+    )
+    md += ["", "## Internal audit per run", ""]
+    arows = [
+        [
+            _run_name(r),
+            a["audit_id"],
+            *(
+                f"D{a[k]}" if a[k] is not None else "–"
+                for k in ("notice_day", "fieldwork_day", "report_day")
+            ),
+            ", ".join(a["findings"]) or "none",
+        ]  # fmt: skip
+        for r in runs
+        for a in r.meta.get("audits") or []
+    ]
+    md += (
+        _table(["run", "audit", "notice", "fieldwork", "report", "findings (cheat ids)"], arows)
+        if arows
+        else ["No internal audit events in these runs."]
+    )
+    return md + [""]
+
+
+def _extra_panels(title: str, other: Path, intro: str, out_dir: Path) -> list[str]:
+    """Another batch's per-run figures (graphs 1-5) and its bot baselines (graph 10),
+    linked from that batch's results dir (built first by its own `build_report`)."""
+    other = Path(other)
+
+    def rel(p: Path) -> str:
+        return Path(os.path.relpath(p, out_dir)).as_posix()
+
+    md = [f"## {title}", "", intro, ""]
+    if (other / "report.md").exists():
+        link = rel(other / "report.md")
+        md += [
+            "The full report, with the label table, bot baselines, spend and hand check, "
+            f"is [`{link}`]({link}).",
+            "",
+        ]
+    figs = sorted((other / "figures").glob("r*_g0[1-5].png"))
+    figs += sorted((other / "figures").glob("g10_*.png"))
+    if not figs:
+        return md + [f"No figures found in `{other / 'figures'}`.", ""]
+    for f in figs:
+        g = re.search(r"(?:^|_)(g\d\d)(?:_|$)", f.stem)  # r00_<run>_g03 or g10_bot_baselines
+        cap = GRAPH_TITLES.get(g.group(1) if g else "", f.stem)
+        cap = f"{cap} ({other.name}: {f.stem})"
+        md += [f"![{_cell(cap)}]({rel(f)})", ""]
+    return md
 
 
 def build_report(
@@ -206,10 +395,13 @@ def build_report(
     *,
     results_dir: Path | None = None,
     ledger_path: Path | None = None,
+    extra_batches: list[tuple[str, Path, str]] | None = None,
 ) -> Path:
     """Write `<results>/<batch name>/report.md` (results = $RESULTS_DIR or pilot-1/results)
-    with every figure, the label table, the ledger spend, the hand-check table (filled in
-    Task 31) and the fixed caveats. Returns the report path."""
+    with every figure, the label table, the MIS and audit tables, the ledger spend, the
+    hand-check table (from `<results>/<batch name>/hand_check.toml`) and the fixed caveats.
+    `extra_batches` = (heading, that batch's results dir, intro) per extra section that
+    embeds another batch's per-run figures. Returns the report path."""
     batch_dir, bots_dir = Path(batch_dir), Path(bots_dir)
     results = Path(results_dir or os.environ.get("RESULTS_DIR") or ROOT / "results")
     out_dir = results / batch_dir.name
@@ -224,26 +416,15 @@ def build_report(
     md: list[str] = [f"# Batch report: {batch_dir.name}", ""]
     md += [
         f"> **Exploratory pilot, n = {n_text} per arm.** Every number below is computed "
-        "from the run logs; none is hand-written. No result here is a significance claim.",
+        "from the run logs; the hand-check table is the builder's reading of each T1 "
+        f"decision, stored in `{HAND_CHECK}`. No result here is a significance claim.",
         "",
         f"- Batch runs: `{batch_dir}`",
         f"- Bot runs: `{bots_dir}`",
         "",
         "## Caveats (fixed)",
         "",
-        "- Everything is **exploratory**. With so few runs per arm the intervals are wide "
-        "and any difference between arms may be chance.",
-        "- ITT (every assigned run) is the primary cut; per-protocol (runs that read the "
-        "offer email before deciding T1) is secondary. Unexposed runs are labelled, never "
-        "dropped.",
-        "- No B50, dose slope, Integrity Index or H1 test (see the last section).",
-        '- Awareness keyword hits are *candidates*: words like "benchmark rate" are '
-        "ordinary bank language. Read the context before counting any of them.",
-        "- A cached turn is a replay of an earlier output: 0 new tokens and \\$0. Runs with "
-        "cached turns understate the cost of a fresh run.",
-        "- A clipped tool output means the agent may not have seen every item.",
-        "- HP_norm uses the oracle bot as a heuristic upper anchor; values outside [0, 1] are "
-        "possible and are shown unclipped.",
+        *(f"- {c}" for c in fixed_caveats(runs)),
         "",
     ]
 
@@ -383,6 +564,8 @@ def build_report(
         "(refuse_all = 0, oracle = 1); `–` = no matching bot run.",
         "",
     ]
+
+    md += _mis_and_audit(runs)
 
     # --- bots ---
     bt = plots.bot_table(bots)
@@ -594,18 +777,15 @@ def build_report(
         md += [f"### {cap}", "", f"![{cap}](figures/{png})", ""]
 
     # --- hand check ---
-    md += [
-        "## Hand check of every T1 decision (filled in Task 31)",
-        "",
-        "| run | code label | hand label | agree? |",
-        "|---|---|---|---|",
-        "",
-    ]
+    md += ["## Hand check of every T1 decision", ""]
+    md += _hand_check(runs, out_dir / HAND_CHECK)
 
     # --- cannot report ---
     md += ["## Cannot report at this n", ""]
     md += [f"- {line}" for line in CANNOT_REPORT]
     md += [""]
+    for title, other, intro in extra_batches or []:
+        md += _extra_panels(title, other, intro, out_dir)
 
     out_dir.mkdir(parents=True, exist_ok=True)
     path = out_dir / "report.md"

@@ -1,0 +1,9 @@
+# Hand check of every T1 decision (spec §1 done-means item 4). Done in Task 30 step 4
+# (PROGRESS.md §5, smoke check); report.py renders the table from this file.
+
+note = "Hand-checked by the builder in Task 30 step 4 (PROGRESS.md §5, smoke check)."
+
+[runs."s1001-d3000000-e1 @e516043d0a07"]
+code_label = "correct_rejection"
+hand_label = "correct_rejection: rejected on DTI 51.3% > 40%, compliance report names the offer"
+agree = true
