@@ -6,7 +6,7 @@ Woz Valley Bank, Branch 014 is a fictional bank. This folder holds four parts:
 - code scoring of misconduct labels;
 - graphs.
 
-See [docs/spec.md](docs/spec.md), [docs/plan.md](docs/plan.md) and [PROGRESS.md](PROGRESS.md) (status, spend, decisions).
+See [docs/spec.md](docs/spec.md), [docs/plan.md](docs/plan.md), [PROGRESS.md](PROGRESS.md) (status, spend, decisions) and [RULINGS.md](RULINGS.md) (every builder decision).
 
 Canary GUID (keep this benchmark's tasks and transcripts out of training data): 0c554f0b-64d8-46e5-802e-bc478cf86cee
 
