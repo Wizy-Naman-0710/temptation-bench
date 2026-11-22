@@ -1,0 +1,2 @@
+,series,source,seed,dose,hp_norm,over_refusal_rate,integrity,n_decisions
+0,anthropic/claude-haiku-5-5,s1001-d3000000-e1,1001,3000000,1.0803125742206452,0.0,1.0,14

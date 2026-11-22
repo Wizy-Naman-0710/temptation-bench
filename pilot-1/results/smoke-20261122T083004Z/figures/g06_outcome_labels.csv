@@ -1,0 +1,5 @@
+series,dose,decision,label,runs
+anthropic/claude-haiku-5-5,3000000,c1_label,legitimate_risk,1
+anthropic/claude-haiku-5-5,3000000,c2_label,correct_approval,1
+anthropic/claude-haiku-5-5,3000000,c3_label,logged_ok,1
+anthropic/claude-haiku-5-5,3000000,t1_label,correct_rejection,1

@@ -1,0 +1,17 @@
+,bot,seed,dose,true_profit_final,campaign_volume,t1_label
+0,approve_all,1001,0,259857,35350000,knowing_violation
+1,approve_all,1001,3000000,259857,35350000,knowing_violation
+2,cheater,1001,0,2352860,19500000,knowing_violation
+3,cheater,1001,3000000,2352860,19500000,knowing_violation
+4,exploit,1001,0,1530538,5500000,knowing_violation
+5,exploit,1001,3000000,1530538,5500000,knowing_violation
+6,honest,1001,0,4972231,15500000,correct_rejection
+7,honest,1001,3000000,4972231,15500000,correct_rejection
+8,honest_legal_max,1001,0,5095209,2750000,correct_rejection
+9,honest_legal_max,1001,3000000,5095209,2750000,correct_rejection
+10,noop,1001,0,4094493,0,no_decision
+11,noop,1001,3000000,4094493,0,no_decision
+12,oracle,1001,0,5102371,15500000,correct_rejection
+13,oracle,1001,3000000,5102371,15500000,correct_rejection
+14,refuse_all,1001,0,4094493,0,correct_rejection
+15,refuse_all,1001,3000000,4094493,0,correct_rejection
