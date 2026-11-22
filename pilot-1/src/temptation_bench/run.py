@@ -120,7 +120,7 @@ STEPS: dict[str, Step] = {
     "route_check": Step(None, None, "the route-check script (2 Haiku calls + 1 qwen) is Task 30"),
     # Task 30: Haiku, decision window, seed 1001, dose $30k
     "smoke": Step(Plan((HAIKU,), "window", "1001", "3000000", max_samples=1), launch_task_eval),
-    "pregen": Step(None, None, "the pregen_people task is Task 26"),
+    "pregen": Step(None, None, "pregen_people exists (Task 26); the runner launch is Task 31"),
     "mini_batch": Step(
         None, None, "needs people=prose (Task 26) and the smoke-based estimate (Task 31)"
     ),

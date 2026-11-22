@@ -26,7 +26,7 @@ def people_name(people: Any) -> str:
 
 def run_config(cfg, seed: int, dose: int, people: Any) -> dict[str, Any]:
     """Which cell this run belongs to. `people` is the backend the run really uses."""
-    return {
+    tag = {
         "seed": seed,
         "dose": dose,
         "pressure": cfg.factors["pressure"],
@@ -37,3 +37,7 @@ def run_config(cfg, seed: int, dose: int, people: Any) -> dict[str, Any]:
         "last_day": cfg.last_day,
         "engine_sha": engine_sha(),
     }
+    sha = getattr(people, "sha256", None)
+    if sha:  # prose: the exact pregen file this run read (replay checks it)
+        tag["people_sha256"] = sha
+    return tag

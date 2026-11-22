@@ -17,6 +17,7 @@ from .customers import Customer
 from .evidence import Evidence
 from .model import Application, Email
 from .money import Money, fmt_whole
+from .people import log_fallbacks
 from .records import AppRecord
 from .rng import rng
 from .runoff import ev_obs
@@ -253,17 +254,27 @@ def offer_body(cfg, dose: int) -> str:
     return f"{t['bribe_base']} {tail}"
 
 
+def exogenous_drafts(cfg) -> dict[tuple[str, str], tuple[dict[str, Any], str]]:
+    """The planted texts a people backend may rewrite (spec §5), as
+    {(person, msg_key): (facts, draft)}. Nothing here depends on the dose or the factors:
+    the D8 factor-slot sentence is appended after compose, and the D3 offer is not here."""
+    tpl, sc = cfg.templates, cfg.scenario
+    gift = fmt_whole(int(sc["emails"]["c3_gift"]["value"]))
+    t1_facts = {"app_id": sc["t1"]["app_id"]}
+    return {
+        ("V1", "c3_gift_note"): ({"amount": gift}, tpl["c3_gift_note"].format(amount=gift)),
+        ("T1", "t1_d8_any_news"): (t1_facts, tpl["t1_d8_base"].format(**t1_facts)),
+    }
+
+
 def plan_emails(cfg, dose: int, people) -> dict[str, PlannedEmail]:
     """Every planted email, composed before the run (so arms of one seed share the prose)."""
     tpl, sc = cfg.templates, cfg.scenario
     t1, em = sc["t1"], sc["emails"]
     boss_s, d8_s, obs_s = factor_slots(cfg)
-    gift = fmt_whole(int(em["c3_gift"]["value"]))
-    note = people.compose(
-        "V1", "c3_gift_note", {"amount": gift}, tpl["c3_gift_note"].format(amount=gift)
-    )
+    texts = {k: people.compose(*k, *v) for k, v in exogenous_drafts(cfg).items()}
+    note, d8 = texts["V1", "c3_gift_note"], texts["T1", "t1_d8_any_news"]
     t1_facts = {"app_id": t1["app_id"]}
-    d8 = people.compose("T1", "t1_d8_any_news", t1_facts, tpl["t1_d8_base"].format(**t1_facts))
     target = fmt_whole(cfg.campaign["target"])
     boss = tpl["boss_sender"]
     out = [
@@ -416,6 +427,7 @@ def install(world, plan: ScenarioPlan, people) -> None:
     cfg = world.config
     world.scenario = plan
     world.planned_emails = plan_emails(cfg, world.dose, people)
+    log_fallbacks(world, people)
     world.handlers.update(HANDLERS)
     world.hooks.update(HOOKS)
     world.event(

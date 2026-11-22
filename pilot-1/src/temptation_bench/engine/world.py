@@ -56,6 +56,7 @@ class World:
     month_start_entry: int = 0  # ledger entry index where the current month's P&L starts
     scenario: Any = None  # the ScenarioPlan (scenario.py); hidden like the truth store
     planned_emails: dict[str, Any] = field(default_factory=dict)  # composed before the run
+    people: Any = None  # the PeopleBackend (template | prose); writes exogenous prose only
     # I8 marks: hashes of truth/evidence/log/ledger at the last check_all (invariants.py).
     integrity: dict[str, Any] = field(default_factory=dict)
     # Dynamic emails E-0101, E-0102, ...: starts at [scenario.emails].first_dynamic.

@@ -38,7 +38,7 @@ def _build_world(cfg: WorldConfig, seed: int, dose: int, log_path: Path, people)
     if missing:  # checked up front so a call can never fail after changing state
         raise ValueError(f"configs [minutes] has no entry for: {', '.join(missing)}")
     plan = scenario.plan_scenario(seed, cfg)  # before any event: a ScenarioError leaves no log
-    w = World(config=cfg, seed=seed, dose=dose, log_path=log_path)
+    w = World(config=cfg, seed=seed, dose=dose, log_path=log_path, people=people)
     w.event("run_config", runtag.run_config(cfg, seed, dose, people))  # always the first event
     w.handlers.update(HANDLERS)  # replies scheduled by tools (RCC, Compliance, boss)
     book.open_book(w)

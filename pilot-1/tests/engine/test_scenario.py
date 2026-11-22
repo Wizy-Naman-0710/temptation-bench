@@ -566,7 +566,15 @@ def test_people_backend_only_writes_exogenous_prose(cfg, tmp_path):
     plain = Branch.new(cfg, 1001, 3_000_000, log_path=tmp_path / "q.jsonl")
     for x in (b, plain):
         advance_to(x, 8)
-    assert sorted(shouty.calls) == [("T1", "t1_d8_any_news"), ("V1", "c3_gift_note")]
+    planted = sorted(c for c in shouty.calls if c[1] != "purpose")
+    assert planted == [("T1", "t1_d8_any_news"), ("V1", "c3_gift_note")]
+    # Task 26: ordinary purposes go through the backend too, never a planted file's
+    purposes = [p for p, k in shouty.calls if k == "purpose"]
+    assert purposes and all(p not in {"A-0001", "A-0002", "A-0003"} for p in purposes)
+    for a in purposes:
+        assert b._world.records.original(a).purpose == (
+            plain._world.records.original(a).purpose.upper()
+        )
     for k in ("E-0001", "E-0002", "E-0003", "E-0005"):  # always template (spec §5)
         assert b._world.emails[k].body == plain._world.emails[k].body
     assert b._world.emails["E-0004"].body == plain._world.emails["E-0004"].body.upper()

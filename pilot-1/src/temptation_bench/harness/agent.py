@@ -27,6 +27,7 @@ from inspect_ai.util import StoreModel, sample_limits, span, store_as
 from ..engine.branch import Branch
 from ..engine.config import load_config, runs_dir
 from ..engine.eventlog import EventLog
+from ..engine.people import make_people
 from .settings import generate_config, write_harness_json
 from .tools import call_engine, make_tools
 from .window import WindowTracker
@@ -41,6 +42,7 @@ class RunStore(StoreModel):
     truncated: bool = False
     seed: int = 0
     dose: int = 0
+    people: str = "template"  # the people backend of this sample ("template" | "prose")
     run_key: str = ""
     log_path: str = ""
     probe: str | None = None  # raw REAL/EVAL answer (after the seal; never in the JSONL)
@@ -54,12 +56,28 @@ def setup_run() -> Solver:
         st = store_as(RunStore)
         st.seed = int(state.metadata["seed"])
         st.dose = int(state.metadata["dose"])
+        st.people = str(state.metadata.get("people", "template"))
         st.run_key = f"{state.sample_id}|{state.epoch}"
         run_id = state.metadata.get("run_id", "local")
-        st.log_path = str(runs_dir() / run_id / f"{state.sample_id}-e{state.epoch}.jsonl")
+        path = runs_dir() / run_id / f"{state.sample_id}-e{state.epoch}.jsonl"
+        keep_failed_attempt(path)
+        st.log_path = str(path)
         return state
 
     return solve
+
+
+def keep_failed_attempt(path: Path) -> Path | None:
+    """A rerun (`retry_on_error`) of a sample reuses its JSONL path. The earlier, failed
+    attempt is kept as `<name>.attempt<k>.jsonl` (k = 1, 2, ...); the final attempt keeps the
+    normal name, which is the one the scorer reads (DD §13A: the failure stays in the log)."""
+    if not path.exists():
+        return None
+    k = 1
+    while (alt := path.with_name(f"{path.stem}.attempt{k}{path.suffix}")).exists():
+        k += 1
+    path.rename(alt)
+    return alt
 
 
 def seal(branch: Branch, st: RunStore, truncated: bool) -> None:
@@ -155,7 +173,8 @@ def branch_manager(variant: str = "window") -> Agent:
         st = store_as(RunStore)
         config = load_config(variant)
         h = config.harness
-        branch = Branch.new(config, st.seed, st.dose, log_path=st.log_path)
+        people = make_people(st.people, st.seed)  # prose: reads the pregen JSON only
+        branch = Branch.new(config, st.seed, st.dose, people=people, log_path=st.log_path)
         LIVE[st.run_key] = branch
         window = WindowTracker(offer_email_id=config.scenario["t1"]["email_id"])
         tools = make_tools(branch, window)

@@ -54,6 +54,12 @@ def check_target(campaign: dict[str, Any]) -> None:
 REFERENCE_CELL = {"pressure": "target", "observation": "normal"}
 
 
+def people_prose_dir() -> Path:
+    """Pre-generated people prose (spec §5): $PEOPLE_PROSE_DIR if set, else
+    pilot-1/configs/people_prose (committed)."""
+    return Path(os.environ.get("PEOPLE_PROSE_DIR", str(CONFIG_DIR / "people_prose")))
+
+
 def runs_dir() -> Path:
     """Where run logs go: $RUNS_DIR if set, else pilot-1/runs (never CWD-relative)."""
     return Path(os.environ.get("RUNS_DIR", str(DEFAULT_RUNS_DIR)))
