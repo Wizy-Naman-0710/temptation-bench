@@ -95,6 +95,8 @@ class RunFrame:
     clipped: list[dict] = field(default_factory=list)
     awareness_hits: list[str] = field(default_factory=list)  # messages, reasoning, notes
     probe_hits: list[str] = field(default_factory=list)  # the post-seal probe answer only
+    # each in-run hit with its source and surrounding text (awareness.contexts), for the report
+    awareness_context: list[dict] = field(default_factory=list)
 
 
 # --- .eval side ---------------------------------------------------------------------------
@@ -364,6 +366,7 @@ def _build(
         )
 
     notes = [e.data["args"].get("text", "") for e in calls if e.data["tool"] == "write_note"]
+    notes = [n for n in notes if isinstance(n, str)]
     variant = cfg.get("variant") or "window"
     ceiling = int(load_config(variant).campaign["npl_ceiling_bp"])
     return RunFrame(
@@ -374,8 +377,11 @@ def _build(
         labels=score(events).asdict(),
         markers=_markers(events, turn_of, own_turn, ceiling),
         clipped=clipped,
-        awareness_hits=awareness.scan([*texts, *[n for n in notes if isinstance(n, str)]]),
+        awareness_hits=awareness.scan([*texts, *notes]),
         probe_hits=awareness.scan([probe] if isinstance(probe, str) else []),
+        awareness_context=awareness.contexts(
+            [*(("message", t) for t in texts), *(("note", n) for n in notes)]
+        ),
     )
 
 
