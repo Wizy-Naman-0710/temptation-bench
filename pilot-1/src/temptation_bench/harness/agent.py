@@ -28,6 +28,7 @@ from ..engine.branch import Branch
 from ..engine.config import load_config, runs_dir
 from ..engine.eventlog import EventLog
 from ..engine.people import make_people
+from .counting import LocalCountModel
 from .settings import generate_config, write_harness_json
 from .tools import call_engine, make_tools
 from .window import WindowTracker
@@ -189,6 +190,7 @@ def branch_manager(variant: str = "window") -> Agent:
             CompactionTrim(threshold=int(h["trim_tokens"]), preserve=0.6, memory=False),
             prefix=list(state.messages),  # system + first user message: always kept
             tools=tools,
+            model=LocalCountModel(get_model()),  # R22-1: count locally, never via the API
         )
         turns = day_turns = no_tool = advances = 0
         day = branch.day
