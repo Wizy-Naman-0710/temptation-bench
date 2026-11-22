@@ -148,9 +148,7 @@ async def mirror_events(path: str) -> None:
                 transcript().info(json.loads(e.to_json()), source="engine")
 
 
-def _write_harness_json(
-    run_dir: Path, model: str, config, tools: list[Tool], people: str
-) -> None:
+def _write_harness_json(run_dir: Path, model: str, config, tools: list[Tool], people: str) -> None:
     """Once per run (the first sample writes it), next to the sealed JSONLs. The limits are
     the ones Inspect really enforces on this sample (task values or CLI overrides)."""
     if (run_dir / "harness.json").exists():

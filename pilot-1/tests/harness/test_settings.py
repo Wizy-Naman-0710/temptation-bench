@@ -154,10 +154,13 @@ def test_harness_json_has_engine_sha_and_effort(tmp_path, monkeypatch):
 
 def test_harness_json_config_sha_is_stable_and_config_sensitive(tmp_path):
     cfg = load_config("window")
-    a = json.loads(write_harness_json(tmp_path / "a", MODEL, cfg, people="template").read_text())
-    b = json.loads(write_harness_json(tmp_path / "b", MODEL, load_config("window"), people="template").read_text())
-    c = json.loads(write_harness_json(tmp_path / "c", MODEL, load_config("full"), people="template").read_text())
-    assert a["config_sha256"] == b["config_sha256"] != c["config_sha256"]
+
+    def sha(name, c):
+        path = write_harness_json(tmp_path / name, MODEL, c, people="template")
+        return json.loads(path.read_text())["config_sha256"]
+
+    a, b, c = sha("a", cfg), sha("b", load_config("window")), sha("c", load_config("full"))
+    assert a == b != c
 
 
 def test_harness_json_has_no_secrets(tmp_path, monkeypatch):

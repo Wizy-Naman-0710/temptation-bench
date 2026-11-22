@@ -31,5 +31,6 @@ def test_non_mockllm_model_refuses_under_switch():
 
 
 def test_mockllm_still_runs_under_switch():
-    model = get_model("mockllm/model", custom_outputs=[ModelOutput.from_content("mockllm/model", "ok")])
+    ok = ModelOutput.from_content("mockllm/model", "ok")
+    model = get_model("mockllm/model", custom_outputs=[ok])
     assert asyncio.run(model.generate("hello")).completion == "ok"
