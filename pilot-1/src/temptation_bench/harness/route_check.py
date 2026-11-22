@@ -133,8 +133,8 @@ def _harness() -> dict[str, Any]:
 
 def call_config(model: str, max_tokens: int) -> GenerateConfig:
     """The harness config for `model` (effort low, no temperature or seed, cache_prompt,
-    max_retries; Anthropic: reasoning_history none) with a small `max_tokens` and no
-    response-cache policy (see `response_cache`)."""
+    max_retries) with a small `max_tokens` and no response-cache policy (see
+    `response_cache`)."""
     base = generate_config(model, 0, 0, _harness(), people="template", variant="window")
     return base.model_copy(update={"cache": None, "max_tokens": int(max_tokens)})
 

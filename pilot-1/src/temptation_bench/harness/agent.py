@@ -29,6 +29,7 @@ from ..engine.config import load_config, runs_dir
 from ..engine.eventlog import EventLog
 from ..engine.people import make_people
 from .counting import LocalCountModel
+from .routes import strip_old_reasoning
 from .settings import generate_config, write_harness_json
 from .tools import call_engine, make_tools
 from .window import WindowTracker
@@ -98,8 +99,10 @@ async def _generate(
     tool_choice: ToolChoice | None = None,
 ) -> ModelOutput | None:
     """One generate on the compacted input. On `model_length`, force a trim and retry once;
-    None if the retry overflows too (or the forced trim cannot fit). The window tracker
-    always sees exactly the input that was sent."""
+    None if the retry overflows too (or the forced trim cannot fit). The compacted input is
+    then passed through `strip_old_reasoning` (Anthropic route: reasoning only on the last
+    assistant message; the stored messages keep theirs). The window tracker always sees
+    exactly the input that was sent."""
     for force in (False, True):
         try:
             input, c_message = await compact.compact_input(state.messages, force=force)
@@ -109,15 +112,15 @@ async def _generate(
             return None
         if c_message is not None:
             state.messages.append(c_message)
-        window.update(input)
-        output = await get_model().generate(
-            input, tools=tools, tool_choice=tool_choice, config=config
-        )
+        model = get_model()
+        sent = strip_old_reasoning(input, str(model))
+        window.update(sent)
+        output = await model.generate(sent, tools=tools, tool_choice=tool_choice, config=config)
         if output.stop_reason == "model_length":
             continue  # the failed turn is not kept (as in Inspect's react())
         state.output = output
         state.messages.append(output.message)
-        await compact.record_output(input, output)
+        await compact.record_output(sent, output)
         return output
     return None
 

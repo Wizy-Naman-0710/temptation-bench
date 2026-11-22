@@ -300,5 +300,5 @@ def test_effort_row_reads_the_merged_request():
 
 
 def test_call_config_per_route():
-    assert rc.call_config(rc.HAIKU, 512).reasoning_history == "none"
+    assert rc.call_config(rc.HAIKU, 512).reasoning_history is None
     assert rc.call_config(rc.PEOPLE_MODEL, 1024).reasoning_history is None

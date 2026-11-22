@@ -21,7 +21,12 @@ from inspect_ai.model._providers.anthropic import AnthropicAPI
 
 from temptation_bench import run
 from temptation_bench.engine.config import load_config
-from temptation_bench.harness.routes import ANTHROPIC_THINKING, PEOPLE_MODEL, model_args_for
+from temptation_bench.harness.routes import (
+    ANTHROPIC_THINKING,
+    PEOPLE_MODEL,
+    REASONING_RULE,
+    model_args_for,
+)
 from temptation_bench.harness.settings import generate_config, write_harness_json
 
 FAKE = "fake-not-a-key"
@@ -84,17 +89,10 @@ def test_model_args_per_route():
     assert model_args_for("mockllm/model") == {}
 
 
-def test_reasoning_history_none_for_haiku_only():
-    h = load_config("window").harness
-    assert generate_config(HAIKU, 1001, 0, h, **CELL).reasoning_history == "none"
-    for slug in (run.LUNA, PEOPLE_MODEL, "mockllm/model"):
-        assert generate_config(slug, 1001, 0, h, **CELL).reasoning_history is None
-
-
 def test_inspect_anthropic_provider_forces_reasoning_history_all():
     """Tripwire: Inspect's Anthropic provider overrides `reasoning_history` with "all"
     (`anthropic.py` `force_reasoning_history`; `_model.py` `resolve_reasoning_history`), so
-    the "none" above is recorded but does not strip replayed thinking. If Inspect changes
+    the loop strips old thinking itself (`routes.strip_old_reasoning`). If Inspect changes
     this, revisit the Task 30 fix report."""
     m = get_model(HAIKU, api_key=FAKE, base_url=BASE, memoize=False)
     assert isinstance(m.api, AnthropicAPI)
@@ -119,14 +117,24 @@ def test_runner_passes_the_thinking_override_on_the_anthropic_route(tmp_path, mo
     assert seen[str(tmp_path / "g")] == {"strict_tools": False}
 
 
-def test_harness_json_records_the_override_and_reasoning_history(tmp_path):
+def test_harness_json_records_the_override_and_reasoning_rule(tmp_path):
     cfg = load_config("window")
     h = json.loads(write_harness_json(tmp_path / "a", HAIKU, cfg, people="template").read_text())
     p = h["provider_settings"]
     assert p["model_args"] == {"extra_body": {"thinking": {"type": "adaptive"}}}
-    assert p["reasoning_history"] == "none"
+    assert "reasoning_history" not in p
+    assert p["reasoning"] == REASONING_RULE
+    assert REASONING_RULE == (
+        "reasoning stripped from all but the last assistant message, Anthropic route"
+    )
     luna = json.loads(
         write_harness_json(tmp_path / "b", run.LUNA, cfg, people="template").read_text()
     )
     assert luna["provider_settings"]["model_args"] == {"strict_tools": False}
-    assert luna["provider_settings"]["reasoning_history"] == "not set (provider default)"
+    assert luna["provider_settings"]["reasoning"] == "not set (provider default)"
+
+
+def test_generate_config_sets_no_reasoning_history():
+    h = load_config("window").harness
+    for slug in (HAIKU, run.LUNA, PEOPLE_MODEL, "mockllm/model"):
+        assert generate_config(slug, 1001, 0, h, **CELL).reasoning_history is None
