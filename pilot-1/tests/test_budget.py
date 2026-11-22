@@ -470,7 +470,7 @@ def test_runner_reruns_failed_once_and_keeps_failure(tmp_path, monkeypatch, env,
     assert entry["actual"] == pytest.approx(log.stats.model_usage["mockllm/model"].total_cost)
     assert entry["retried_samples"] == 1 and entry["failed_samples"] == 0
     assert log.eval.config.retry_on_error == 1
-    assert log.eval.config.cost_limit == 1.00  # smoke itself: $1
+    assert log.eval.config.cost_limit == 0.50  # smoke: $1 cap / (1 run x 2 attempts)
 
 
 def test_runner_refuses_unbuilt_steps_without_network(tmp_path, env, ledger):
@@ -518,7 +518,7 @@ def test_dry_run_checks_and_prints_plan_without_eval(tmp_path, monkeypatch, caps
     monkeypatch.setattr(run, "inspect_eval", no_eval)
     seen: list[httpx.Request] = []
     code = run.main(
-        ["--step", "gfree", "--estimate", "0", "--token-limit", "800000", "--dry-run"],
+        ["--step", "gfree", "--estimate", "0", "--token-limit", "500000", "--dry-run"],
         log_root=tmp_path / "logs",
         env_path=env,
         ledger_path=ledger,
@@ -527,7 +527,7 @@ def test_dry_run_checks_and_prints_plan_without_eval(tmp_path, monkeypatch, caps
     assert code == 0
     out = capsys.readouterr().out
     assert "openai-api/xpl/gpt-6-luna" in out and "gfree" in out
-    assert "800000" in out and "1001" in out and "3000000" in out
+    assert "500000" in out and "1001" in out and "3000000" in out
     assert len(seen) == 1  # the balance fetch is the only call
     assert ledger.read_text() == ""
     # a dry run still refuses over the cap
@@ -543,8 +543,8 @@ def test_dry_run_checks_and_prints_plan_without_eval(tmp_path, monkeypatch, caps
 
 
 def test_sample_cost_limit_defaults(ledger):
-    assert run.default_sample_cost_limit("smoke", ledger) == 1.00
-    assert run.default_sample_cost_limit("gfree", ledger) == 1.00
+    assert run.default_sample_cost_limit("smoke", ledger) == 0.50  # fits the $1 cap with a rerun
+    assert run.default_sample_cost_limit("gfree", ledger) == 1.00  # free tier: tokens bound it
     with pytest.raises(run.RunnerError, match="smoke"):
         run.default_sample_cost_limit("mini_batch", ledger)
     ledger.write_text(_line(step="smoke", actual=0.2, runs=1))
@@ -628,3 +628,175 @@ def test_runner_refuses_bad_sample_cost_limit(tmp_path, env, ledger, bad):
             ledger_path=ledger,
             transport=never_called(),
         )
+
+
+# ---- R25-2: worst-case run-time exposure ---------------------------------------------------
+
+
+def _no_eval(monkeypatch):
+    def no_eval(*a, **k):  # pragma: no cover
+        raise AssertionError("eval must not run")
+
+    monkeypatch.setattr(run, "inspect_eval", no_eval)
+
+
+def test_exposure_is_runs_times_limit_times_attempts():
+    plan = run.STEPS["smoke"].plan
+    assert run.RETRY_ON_ERROR == 1
+    assert run.exposure(plan, 0.4) == pytest.approx(1 * 0.4 * 2)
+    assert run.exposure(plan, None) is None  # no cost limit: unknown, never $0
+
+
+def test_exposure_refuses_over_step_cap(tmp_path, monkeypatch, env, ledger):
+    _no_eval(monkeypatch)
+    with pytest.raises(BudgetError, match="exposure .* over the smoke cap"):
+        run.run_step(
+            "smoke",
+            0.1,
+            sample_cost_limit=0.6,  # 1 run x $0.60 x 2 attempts = $1.20 > $1.00
+            log_root=tmp_path,
+            env_path=env,
+            ledger_path=ledger,
+            transport=never_called(),
+        )
+    assert ledger.read_text() == ""
+
+
+def test_exposure_refuses_over_stop_line(tmp_path, monkeypatch, capsys, env, ledger):
+    _no_eval(monkeypatch)
+    ledger.write_text(_line(actual=8.80))
+    with pytest.raises(BudgetError, match="stop line"):
+        run.run_step(
+            "smoke",
+            0.1,
+            sample_cost_limit=0.4,  # 8.80 + 1 x 0.40 x 2 = 9.60 > 9.50
+            log_root=tmp_path,
+            env_path=env,
+            ledger_path=ledger,
+            transport=never_called(),
+        )
+    # 8.80 + 0.30 x 2 = 9.40 passes (dry run)
+    run.run_step(
+        "smoke",
+        0.1,
+        sample_cost_limit=0.3,
+        dry_run=True,
+        log_root=tmp_path,
+        env_path=env,
+        ledger_path=ledger,
+        transport=credits(),
+    )
+    assert "exposure:          $0.6000" in capsys.readouterr().out
+    assert len(ledger.read_text().splitlines()) == 1
+
+
+def test_exposure_unknown_refuses_a_paid_step():
+    plan = run.STEPS["smoke"].plan
+    with pytest.raises(BudgetError, match="unknown"):
+        run.check_exposure("smoke", plan, None, None, 0.0)
+
+
+def test_default_smoke_sample_cost_limit_fits_the_cap(ledger):
+    limit = run.default_sample_cost_limit("smoke", ledger)
+    assert limit == pytest.approx(0.50)  # min($1, $1.00 cap / (1 run x 2 attempts))
+    assert run.exposure(run.STEPS["smoke"].plan, limit) <= STEP_CAPS["smoke"]
+
+
+def test_dry_run_prints_the_exposure(tmp_path, monkeypatch, capsys, env, ledger):
+    _no_eval(monkeypatch)
+    code = run.main(
+        ["--step", "smoke", "--estimate", "0.3", "--dry-run"],
+        log_root=tmp_path,
+        env_path=env,
+        ledger_path=ledger,
+        transport=credits(),
+    )
+    assert code == 0
+    out = capsys.readouterr().out
+    assert "exposure:          $1.0000 (1 runs x $0.5000 x 2 attempts)" in out
+
+
+def test_gfree_exposure_is_counted_in_free_tier_tokens(tmp_path, monkeypatch, capsys, env, ledger):
+    """G-free has a $0 cap: its worst case is measured in free-tier tokens. 1 run x 2
+    attempts x token_limit must fit the 1M tokens/day free tier (spec §6 G-free)."""
+    _no_eval(monkeypatch)
+    kw = dict(log_root=tmp_path, env_path=env, ledger_path=ledger)
+    with pytest.raises(BudgetError, match="free tier"):
+        run.run_step("gfree", 0.0, token_limit=800_000, transport=never_called(), **kw)
+    run.run_step("gfree", 0.0, token_limit=500_000, dry_run=True, transport=credits(), **kw)
+    run.run_step("gfree", 0.0, dry_run=True, transport=credits(), **kw)  # default fits
+    out = capsys.readouterr().out
+    assert "token_limit:       500000 (free-tier share)" in out
+    assert "1000000 of 1000000 free-tier tokens" in out
+    assert ledger.read_text() == ""
+
+
+# ---- R25-5: default token limit from the smoke ---------------------------------------------
+
+
+def test_default_token_limit_from_smoke(ledger):
+    assert run.default_token_limit(ledger) is None  # before any smoke: none
+    ledger.write_text(_line(actual=0.3, runs=1))  # an old line without token totals
+    assert run.default_token_limit(ledger) is None
+    ledger.write_text(
+        _line(actual=0.3, runs=1, total_tokens=300_000)
+        + _line(step="gfree", actual=0.0, runs=1, total_tokens=10)
+        + _line(actual=0.6, runs=2, total_tokens=1_000_000)
+    )
+    assert run.default_token_limit(ledger) == 1_000_000  # 2 x (1,000,000 / 2), latest smoke
+
+
+def test_runner_defaults_the_token_limit_after_a_smoke(tmp_path, monkeypatch, capsys, env, ledger):
+    _no_eval(monkeypatch)
+    ledger.write_text(_line(actual=0.3, runs=1, total_tokens=300_000))
+    kw = dict(log_root=tmp_path, env_path=env, ledger_path=ledger, transport=credits())
+    run.run_step("smoke", 0.3, dry_run=True, **kw)
+    assert "token_limit:       600000 (2 x smoke mean)" in capsys.readouterr().out
+    run.run_step("smoke", 0.3, token_limit=123_456, dry_run=True, **kw)  # the flag wins
+    assert "token_limit:       123456 (--token-limit)" in capsys.readouterr().out
+
+
+def test_record_keeps_token_totals_for_the_default(tmp_path, monkeypatch, env, ledger):
+    monkeypatch.setenv("RUNS_DIR", str(tmp_path / "runs"))
+    model = get_model("mockllm/model", custom_outputs=_mock_window())
+    entry = run.run_step(
+        "smoke",
+        0.5,
+        model=model,
+        log_root=tmp_path / "logs",
+        env_path=env,
+        ledger_path=ledger,
+        transport=credits(),
+        display="none",
+    )
+    assert entry["total_tokens"] > 0
+    assert run.default_token_limit(ledger) == 2 * entry["total_tokens"]
+
+
+# ---- X-1: one model per eval ---------------------------------------------------------------
+
+
+TWO = run.Plan((run.HAIKU, run.LUNA), "window", "1001", "3000000")
+
+
+def test_launch_refuses_more_than_one_model(tmp_path, monkeypatch):
+    _no_eval(monkeypatch)
+    ctx = run.Ctx("smoke", TWO, tmp_path, 0.5, None)
+    with pytest.raises(run.RunnerError, match="one model per eval"):
+        run.launch_task_eval(ctx)
+
+
+def test_runner_refuses_a_two_model_step_before_any_call(tmp_path, monkeypatch, env, ledger):
+    _no_eval(monkeypatch)
+    monkeypatch.setitem(run.STEPS, "smoke", run.Step(TWO, run.launch_task_eval))
+    with pytest.raises(run.RunnerError, match="one model per eval"):
+        run.run_step(
+            "smoke",
+            0.1,
+            sample_cost_limit=0.1,
+            log_root=tmp_path,
+            env_path=env,
+            ledger_path=ledger,
+            transport=never_called(),
+        )
+    assert ledger.read_text() == ""
