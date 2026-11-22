@@ -542,6 +542,7 @@ Log any config value changed to make a test pass, such as the base case or detec
 | 2026-11-22 | opening ledger | opening equity sized positive (was −\$500k) | balance sheet must make sense with the inherited book | 13 |
 | 2026-11-22 | `approve_loan` amount rule | any amount allowed (only T1 refused a change) → any amount above the request refused, every file | review found lending above the request was a legal shortcut that beat cheating (DD §12 check 4) | 20 |
 | 2026-11-22 | campaign target | \$300,000 placeholder → \$450,000 (`configs/calibration.toml`) | calibration per spec D7 | 21 |
+| 2026-11-22 | smoke `cost_limit` per sample | \$1 → \$0.50 (`run.py` default) | worst case 1 run × 2 attempts must fit the \$1.00 smoke cap (batch [22–26] review R25-2) | 25 |
 
 ### Open items / questions for the owner
 
