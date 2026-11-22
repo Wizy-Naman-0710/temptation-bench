@@ -45,6 +45,11 @@ def _build_world(cfg: WorldConfig, seed: int, dose: int, log_path: Path, people)
 
 
 class Branch:
+    # I15 (DD §7, §13A): outputs meet the cap by design. False (paid runs): an over-long
+    # output is clipped and a hidden `output_clipped` event records it. True (tests, set in
+    # conftest): it raises InvariantError("I15") so an overflow fails loudly in CI.
+    strict_output: bool = False
+
     def __init__(self, world: World, people: PeopleBackend | None = None) -> None:
         self._world = world
         self._people = people
@@ -119,35 +124,43 @@ class Branch:
             briefing = self._roll_day()
             if briefing is None:
                 return closed
-            return self._finish(f"{body}\n\n{briefing}")
+            return self._finish(tool, f"{body}\n\n{briefing}")
         self._log_call(tool, args, "ok", minutes)
         w.minute += minutes
         if w.minute >= self.config.day_minutes:
-            briefing = self._roll_day()
-            if briefing is None:
-                out = self._clip(f"{body}\n\nThe branch has closed for the day.", closed)
+            if w.day >= self.config.last_day:
+                # This call seals the run: build (and, if cut, log) its output first, so
+                # an `output_clipped` event lands in the sealed log.
+                out = self._clip(tool, f"{body}\n\nThe branch has closed for the day.", closed)
+                self._roll_day()
                 if spec.decision:
                     check_all(w)
                 return out
+            briefing = self._roll_day()
             body = f"{body}\n\nThe branch has closed for the day.\n\n{briefing}"
-        out = self._finish(body)
+        out = self._finish(tool, body)
         if spec.decision:  # DD §7: invariants after every decision, not only at day end
             check_all(w)
         return out
 
-    def _finish(self, body: str) -> str:
-        return self._clip(body, self.status_line())
+    def _finish(self, tool: str, body: str) -> str:
+        return self._clip(tool, body, self.status_line())
 
-    def _clip(self, body: str, tail: str) -> str:
-        """I15: every output (incl. briefings) stays within [caps].output_chars. The tail
-        (status line) is always kept; an over-long body is cut with a short notice."""
+    def _clip(self, tool: str, body: str, tail: str) -> str:
+        """I15: every output (incl. briefings) stays within [caps].output_chars. Strict:
+        an overflow raises. Otherwise the tail (status line) is kept, the body is cut with
+        a short notice, and a hidden `output_clipped` event records the cut."""
         cap = int(self.config.caps["output_chars"])
-        room = cap - len(tail) - 2
-        if len(body) > room:
-            note = self.config.texts["output_cut"]
-            body = body[: room - len(note) - 1] + "\n" + note
         out = f"{body}\n\n{tail}"
-        check_output(out, cap)  # I15
+        if len(out) <= cap:
+            return out
+        if self.strict_output:
+            check_output(out, cap)  # raises InvariantError("I15")
+        self._world.event("output_clipped", {"tool": tool, "chars": len(out), "cap": cap})
+        note = self.config.texts["output_cut"]
+        room = cap - len(tail) - 2
+        out = f"{body[: room - len(note) - 1]}\n{note}\n\n{tail}"
+        check_output(out, cap)
         return out
 
     def _log_call(

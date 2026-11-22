@@ -585,9 +585,12 @@ def test_portfolio_report_format_caps(make_branch):
     assert len(out) <= 10_000
 
 
-def test_outputs_within_size_caps_I15(make_branch, monkeypatch):
-    cap = load_config("window").caps["output_chars"]
-    b = make_branch(variant="full", arrivals={"lam": 4.0})
+def _over_long_status(monkeypatch):
+    monkeypatch.setitem(TOOLS, "get_status", ToolSpec("get_status", lambda w, c: "x" * 50_000))
+
+
+def _drive_all_outputs(b):
+    """Every list/report/notes output plus each day crossing, to the end of the run."""
     for _ in range(30):
         b.call("write_note", text="n" * 250)
     outs = []
@@ -601,11 +604,75 @@ def test_outputs_within_size_caps_I15(make_branch, monkeypatch):
         ]:
             outs.append(b.call(tool, **kw))
         outs.append(b.call("wait_for_next_day"))
-    assert all(len(o) <= cap for o in outs)
-    b2 = make_branch()
-    monkeypatch.setitem(TOOLS, "get_status", ToolSpec("get_status", lambda w, c: "x" * 50_000))
-    out = b2.call("get_status")
+    return outs
+
+
+def test_outputs_within_size_caps_I15(make_branch):
+    """DD §13A: the cap is met by design. Natural outputs are never clipped: in tests the
+    Branch is strict (conftest), so an overflow raises I15 instead of being cut."""
+    cut = load_config("window").texts["output_cut"]
+    b = make_branch(variant="full", arrivals={"lam": 4.0})
+    assert b.strict_output
+    outs = _drive_all_outputs(b)
+    assert not any(cut in o for o in outs)
+    assert not _events(b, "output_clipped")
+
+
+def test_strict_i15_run_check_can_fail(make_branch):
+    """The run-long check is not vacuous: with a lowered cap the same run fails loudly."""
+    b = make_branch(variant="full", arrivals={"lam": 4.0}, caps={"output_chars": 1500})
+    with pytest.raises(InvariantError, match="I15"):
+        _drive_all_outputs(b)
+
+
+@pytest.mark.parametrize("bot", ["honest", "cheater"])
+@pytest.mark.parametrize("seed", [1001, 7, 42])
+def test_bot_runs_never_clip_an_output(tmp_path, bot, seed):
+    from temptation_bench.bots.base import run_bot
+
+    sealed = run_bot(bot, load_config("window"), seed, 3_000_000, tmp_path)  # strict: raises
+    text = sealed.path.read_text()
+    assert '"output_clipped"' not in text
+
+
+def test_bot_run_check_can_fail(tmp_path):
+    from temptation_bench.bots.base import run_bot
+
+    with pytest.raises(InvariantError, match="I15"):
+        run_bot("honest", load_config("window", caps={"output_chars": 600}), 1001, 0, tmp_path)
+
+
+def test_over_long_output_is_clipped_and_logged_hidden(make_branch, monkeypatch):
+    b = make_branch()
+    b.strict_output = False  # paid-run behaviour: clip, keep the status line, leave a trace
+    cap = b.config.caps["output_chars"]
+    _over_long_status(monkeypatch)
+    out = b.call("get_status")
     assert len(out) <= cap and out.endswith("unread 1]")
+    assert b.config.texts["output_cut"] in out
+    (ev,) = _events(b, "output_clipped")
+    assert ev.visibility == "hidden"
+    assert ev.data["tool"] == "get_status" and ev.data["chars"] > 50_000
+    assert ev.data["cap"] == cap
+    assert "output_clipped" not in out
+
+
+def test_strict_branch_raises_on_over_long_output(make_branch, monkeypatch):
+    b = make_branch()
+    _over_long_status(monkeypatch)
+    with pytest.raises(InvariantError, match="I15"):
+        b.call("get_status")
+
+
+def test_clip_on_the_sealing_call_is_in_the_sealed_log(make_branch, monkeypatch):
+    b = make_branch()
+    b.strict_output = False
+    advance_to(b, b.config.last_day)
+    b._world.minute = b.config.day_minutes - 1
+    _over_long_status(monkeypatch)
+    out = b.call("get_status")  # crosses the last close: the run seals
+    assert b.over and len(out) <= b.config.caps["output_chars"]
+    assert '"output_clipped"' in b.finalize().path.read_text()
 
 
 def test_new_agent_texts_have_no_banned_words(cfg):
