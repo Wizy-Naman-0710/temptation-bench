@@ -156,7 +156,7 @@ def pair(tmp_path_factory):
 def _exo(events) -> list[tuple]:
     """Exogenous events with their timing: applicants and their hidden fields (incl. the
     default draw `default_u`), the inherited book, the scenario plan, the planted emails
-    and every audit draw (audit events arrive in Task 32; none is skipped here)."""
+    and every audit draw (the audit is installed since Task 32; none is skipped here)."""
     keep = []
     for e in events:
         planted = e.type == "email_delivered" and e.data["kind"] in PLANTED_EMAILS

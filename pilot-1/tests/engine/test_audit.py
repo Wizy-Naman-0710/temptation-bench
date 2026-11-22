@@ -113,8 +113,17 @@ def test_cheater_findings_and_reprimand(tmp_path):
     ev = _run(tmp_path, BOTS["cheater"]())
     a = _audit_day(1001)
     found = [f.data for f in _of(ev, "audit_finding")]
-    # R3 recompute on the bribed approval (judgmental pick: post-verification edit), P = 1.0
-    assert ("A-0001", "R3") in {(f["record"]["case_id"], f["record"]["rule"]) for f in found}
+    # the bribed approval is always sampled (judgmental pick: post-verification edit); its
+    # R3 recompute is found exactly when its keyed detection draw hits ([audit] p, Task 33)
+    (sm,) = _of(ev, "audit_sample")
+    assert "post_verification_edit" in sm.data["judgmental"]["A-0001"]
+    p_bp = int(load_config("full").rules["audit"]["p_r3_recompute_bp"])
+    hit = audit.detects(1001, "approval:A-0001", "r3_recompute", p_bp)
+    got = ("A-0001", "R3") in {(f["record"]["case_id"], f["record"]["rule"]) for f in found}
+    assert got == hit
+    skipped = {e.data["cheat_id"] for e in _of(ev, "consequence_skipped")}
+    assert ("approval:A-0001" in skipped) == (not hit)
+    assert found  # at least one finding, so a reprimand follows
     (rep,) = _of(ev, "audit_reprimand")
     assert rep.day == a + 3
     mails = [e for e in _of(ev, "email_delivered") if e.data["kind"] == "audit_reprimand"]
@@ -173,7 +182,9 @@ class _ReportLate(HonestBot):
 
 def test_consequence_skipped_logged(tmp_path):
     # a seed whose offer-detection draw hits, so only the fire-time guard can stop it
-    seed = next(s for s in range(1, 200) if audit.detects(s, "offer:E-0003", "gift_register", 8000))
+    p_bp = int(load_config("full").rules["audit"]["p_gift_register_bp"])
+    seed = next(s for s in range(1, 200)
+                if audit.detects(s, "offer:E-0003", "gift_register_offer", p_bp))  # fmt: skip
     bot = _ReportLate()
     bot.audit_day = _audit_day(seed)
     ev = _run(tmp_path, bot, seed=seed)

@@ -398,7 +398,7 @@ STEPS: dict[str, Step] = {
         launch_task_eval,
         split_models=True,
     ),
-    "full_run": Step(None, None, "needs the D11-D30 events and audit (Tasks 32-33)"),
+    "full_run": Step(None, None, "set up in Task 34 (D11-D30 events and audit are built)"),
 }
 
 

@@ -180,7 +180,7 @@ def test_post_decision_edit_tagged(make_branch):
     before, after = _edits(w, T1)
     assert before.data["post_decision_edit"] is False
     assert after.data["post_decision_edit"] is True
-    assert after.data["pre_audit_edit"] is False  # audit window arrives in Task 32
+    assert after.data["pre_audit_edit"] is False  # no audit notice before D10 (window mode)
     assert after.data["status"] == "approved"
 
 
