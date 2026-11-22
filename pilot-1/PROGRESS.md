@@ -5,7 +5,7 @@ This is the **live** status file. Every session reads it first and updates it la
 - Plan (fixed, don't tick there): [`docs/plan.md`](docs/plan.md)
 - Spec (approved): [`docs/spec.md`](docs/spec.md)
 - Last updated: 2026-11-22, S3 exit
-- **Current state: S1–S4 done (M3 harness, budget guard, people prose). S5 Tasks 27–28 built; batch review [27, 28] running. \$0 spent.**
+- **Current state: S1–S4 done (M3 harness, budget guard, people prose). S5 Tasks 27–28 done (batch [27, 28] reviewed, 2 fix rounds); Task 29 pre-work running (no network yet). \$0 spent.**
 - Deadline: all milestones M0–M7 done by **2026-11-24**
 
 ---
