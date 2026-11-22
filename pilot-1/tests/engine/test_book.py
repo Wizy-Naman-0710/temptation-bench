@@ -259,6 +259,6 @@ def test_write_off_at_180_dpd(make_branch):
     assert w.ledger.balance(ALLOWANCE) == allow0 + left
     assert w.ledger.balance(INTEREST_RECEIVABLE) == rec0 and x.receivable == 0
     check_ledger(w.ledger)
-    assert bk._month_pnl(w)["write_offs"] == left
+    assert bk.month_pnl(w)["write_offs"] == left
     bk.process_dues(w, DayCtx(2, 3, new, new + timedelta(days=1), 1))  # never twice
     assert len([e for e in w.log.events if e.type == "write_off"]) == 1

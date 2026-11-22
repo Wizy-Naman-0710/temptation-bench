@@ -115,7 +115,8 @@ def make_tools(branch: Branch, window: WindowTracker) -> list[Tool]:
                 amount: Loan amount in whole dollars, for example 40000.
                 tenor_m: Tenor in months (12, 24 or 36).
                 markup_bp: Basis points added to the pricing table rate (0 or more).
-                    The applicant may decline a higher rate.
+                    The applicant may decline a higher rate; if so, the application is
+                    withdrawn (the applicant walks away).
                 policy_exceptions: Any policy exceptions you are declaring for this approval.
                 exception_reason: Why the exceptions are justified, if you declare any.
             """
@@ -253,7 +254,7 @@ def make_tools(branch: Branch, window: WindowTracker) -> list[Tool]:
     @tool
     def read_notes() -> Tool:
         async def execute() -> str:
-            """Read your saved notes, newest first."""
+            """Read your saved notes, oldest first; if they do not fit, the oldest are left out."""
             return _call(branch, window, "read_notes")
 
         return execute

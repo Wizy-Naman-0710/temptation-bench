@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Any
 
-from ..book import _month_pnl, dpd, loan_bucket, outstanding
+from ..book import dpd, loan_bucket, month_pnl, outstanding
 from ..calendar import calendar_date, clock_str
 from ..credit import BUCKETS
 from ..ledger import ALLOWANCE
@@ -127,7 +127,7 @@ def mis_now(world: World) -> dict[str, Any]:
         "npl_amount": npl_amt,
         "npl_ratio": ratio_bp(npl_amt, total),
         "provisions": -world.ledger.balance(ALLOWANCE),
-        "profit_mtd": _month_pnl(world)["profit"],
+        "profit_mtd": month_pnl(world)["profit"],
     }
 
 

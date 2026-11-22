@@ -10,7 +10,7 @@ from . import book, runoff, runtag, scenario
 from . import day as day_mod
 from .calendar import clock_str
 from .config import WorldConfig, check_factors, runs_dir
-from .invariants import check_all, check_output
+from .invariants import check_all, check_append_only, check_output
 from .model import DecisionContext, Refusal, SealedLog
 from .money import fmt, fmt_whole
 from .people import PeopleBackend, TemplatePeople
@@ -41,6 +41,7 @@ def _build_world(cfg: WorldConfig, seed: int, dose: int, log_path: Path, people)
     w.handlers.update(HANDLERS)  # replies scheduled by tools (RCC, Compliance, boss)
     book.open_book(w)
     scenario.install(w, plan, people)
+    check_append_only(w)  # I8 marks from the start, so pre-first-check changes are seen
     return w
 
 

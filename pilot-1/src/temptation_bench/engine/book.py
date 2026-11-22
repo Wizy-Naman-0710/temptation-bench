@@ -583,7 +583,7 @@ def post_provisions(world, d) -> list[str]:
     return []
 
 
-def _month_pnl(world) -> dict[str, Money]:
+def month_pnl(world) -> dict[str, Money]:
     """P&L {cents} from the ledger since the month opened (income positive)."""
     sums = dict.fromkeys(PNL_ACCOUNTS, 0)
     written_off = 0
@@ -615,7 +615,7 @@ def close_day(world, d) -> list[str]:
         loans += out
         if loan_bucket(x, on) == "NPL":
             npl += out
-    pnl = _month_pnl(world)
+    pnl = month_pnl(world)
     world.log.append(
         "day_close",
         "engine",

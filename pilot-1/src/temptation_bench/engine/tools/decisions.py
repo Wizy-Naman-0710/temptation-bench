@@ -9,6 +9,7 @@ from ..credit import rate_bp_for_score, takeup_prob
 from ..ledger import CASH, LOANS
 from ..model import DecisionContext, Refusal
 from ..money import fmt, fmt_whole
+from ..records import REASON_MAX
 from ..rng import rng
 from ..world import World
 from .applications import get_ready_app, policy_check
@@ -40,7 +41,7 @@ _INT_HINT = {
     "markup_bp": "a whole number of basis points, 0 or more, for example 50",
 }
 MARKUP_MAX = 2000  # {bp/yr} designer call: guards against absurd rates
-EXC_MAX_ITEMS, EXC_MAX_LEN, REASON_MAX = 10, 200, 500
+EXC_MAX_ITEMS, EXC_MAX_LEN = 10, 200
 
 
 def _int_arg(name: str, v) -> int:
@@ -159,7 +160,11 @@ def approve_loan(
     policy_exceptions: list[str] | None = None,
     exception_reason: str = "",
 ) -> str:
-    """Approve at own level. Rate = R4 table rate for the score + markup (DD §8)."""
+    """Approve at own level. Rate = R4 table rate for the score + markup (DD §8).
+
+    An ordinary applicant may decline a marked-up rate (take-up, `takeup_accepts`). A
+    decline books nothing and withdraws the file: the applicant walks away, so it cannot
+    be re-offered (controller ruling, review 17-19 Minor 10)."""
     a = _pending(world, app_id)
     rules = world.config.rules
     amount_c = _int_arg("amount", amount) * 100

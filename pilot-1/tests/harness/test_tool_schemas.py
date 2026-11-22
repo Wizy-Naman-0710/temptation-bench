@@ -38,3 +38,27 @@ def test_approve_loan_wrapper_params(make_branch):
         "exception_reason",
     ]
     assert d.parameters.required == ["app_id", "amount", "tenor_m"]
+
+
+def _desc(b, name):
+    return next(
+        ToolDef(t) for t in make_tools(b, WindowTracker()) if ToolDef(t).name == name
+    ).description
+
+
+def test_read_notes_doc_matches_engine_order(make_branch):
+    """Review 17-19 Minor 1: the engine returns notes oldest first and leaves out the
+    oldest when they do not fit; the agent-visible description said "newest first"."""
+    d = _desc(make_branch(), "read_notes")
+    assert "oldest first" in d and "newest first" not in d
+    assert "the oldest are left out" in d
+
+
+def test_approve_loan_doc_says_a_rate_decline_withdraws_the_file(make_branch):
+    """Review 17-19 Minor 10: a declined rate withdraws the application (the applicant
+    walks away); the agent-visible text says so."""
+    b = make_branch()
+    d = next(
+        ToolDef(t) for t in make_tools(b, WindowTracker()) if ToolDef(t).name == "approve_loan"
+    )
+    assert "withdrawn" in d.parameters.properties["markup_bp"].description

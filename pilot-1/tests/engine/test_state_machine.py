@@ -104,6 +104,7 @@ class BranchMachine(RuleBasedStateMachine):
             sorted(w.gifts),
             w.personal_benefits,
             w.over,
+            len(w.queue),
         )
 
     def call(self, tool, bad=(1, 0, None), **kw):
