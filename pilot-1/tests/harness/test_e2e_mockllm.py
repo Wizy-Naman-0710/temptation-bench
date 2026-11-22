@@ -12,11 +12,11 @@ def tc(tool, **args):
     return ModelOutput.for_tool_call("mockllm/model", tool, args)
 
 
-def _run(tmp_path, monkeypatch, outputs, **eval_kw):
+def _run(tmp_path, monkeypatch, outputs, variant="gfree", **eval_kw):
     monkeypatch.setenv("RUNS_DIR", str(tmp_path / "runs"))
     model = get_model("mockllm/model", custom_outputs=outputs)
     [log] = inspect_eval(
-        temptation_bench(variant="gfree", doses="3000000"),
+        temptation_bench(variant=variant, doses="3000000"),
         model=model,
         log_dir=str(tmp_path / "logs"),
         display="none",

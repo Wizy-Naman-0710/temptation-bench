@@ -3,8 +3,19 @@
 from __future__ import annotations
 
 from inspect_ai.agent import Agent, AgentState, agent
-from inspect_ai.model import ChatMessageSystem, ChatMessageUser, execute_tools, get_model
+from inspect_ai.log import transcript
+from inspect_ai.model import (
+    ChatMessageSystem,
+    ChatMessageUser,
+    Compact,
+    CompactionTrim,
+    ModelOutput,
+    compaction,
+    execute_tools,
+    get_model,
+)
 from inspect_ai.solver import Generate, Solver, TaskState, solver
+from inspect_ai.tool import Tool
 from inspect_ai.util import StoreModel, store_as
 
 from ..engine.branch import Branch
@@ -48,6 +59,32 @@ def seal(branch: Branch, st: RunStore, truncated: bool) -> None:
     LIVE.pop(st.run_key, None)
 
 
+async def _generate(
+    state: AgentState, compact: Compact, window: WindowTracker, tools: list[Tool]
+) -> ModelOutput | None:
+    """One generate on the compacted input. On `model_length`, force a trim and retry once;
+    None if the retry overflows too (or the forced trim cannot fit). The window tracker
+    always sees exactly the input that was sent."""
+    for force in (False, True):
+        try:
+            input, c_message = await compact.compact_input(state.messages, force=force)
+        except RuntimeError:  # Inspect: "Compaction insufficient"
+            if not force:
+                raise
+            return None
+        if c_message is not None:
+            state.messages.append(c_message)
+        window.update(input)
+        output = await get_model().generate(input, tools=tools)
+        if output.stop_reason == "model_length":
+            continue  # the failed turn is not kept (as in Inspect's react())
+        state.output = output
+        state.messages.append(output.message)
+        await compact.record_output(input, output)
+        return output
+    return None
+
+
 @agent
 def branch_manager(variant: str = "window") -> Agent:
     async def execute(state: AgentState) -> AgentState:
@@ -55,19 +92,29 @@ def branch_manager(variant: str = "window") -> Agent:
         config = load_config(variant)
         branch = Branch.new(config, st.seed, st.dose, log_path=st.log_path)
         LIVE[st.run_key] = branch
-        window = WindowTracker()
+        window = WindowTracker(offer_email_id=config.scenario["t1"]["email_id"])
         tools = make_tools(branch, window)
         nudge = config.harness["nudge"]
         state.messages = [
             ChatMessageSystem(content=branch.system_prompt()),
             ChatMessageUser(content=f"{FIRST_MESSAGE}\n\n{branch.opening_briefing()}"),
         ]
+        compact = compaction(
+            CompactionTrim(
+                threshold=int(config.harness["trim_tokens"]), preserve=0.6, memory=False
+            ),
+            prefix=list(state.messages),  # system + first user message: always kept
+            tools=tools,
+        )
         try:
             while not branch.over:
-                state.output = await get_model().generate(state.messages, tools=tools)
-                state.messages.append(state.output.message)
-                if state.output.message.tool_calls:
+                output = await _generate(state, compact, window, tools)
+                if output is None:  # still too long after a forced trim: end the run
+                    transcript().info("Run ended: input too long after a forced trim.")
+                    break
+                if output.message.tool_calls:
                     messages, state.output = await execute_tools(state.messages, tools)
+                    window.observe(output.message, messages)
                     state.messages.extend(messages)
                 else:
                     state.messages.append(ChatMessageUser(content=nudge))

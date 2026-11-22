@@ -11,7 +11,7 @@ from .window import WindowTracker
 
 def _call(branch: Branch, window: WindowTracker, name: str, **kw) -> str:
     try:
-        return branch.call(name, ctx=window.context(kw.get("app_id", "")), **kw)
+        return branch.call(name, ctx=window.context(kw.get("app_id")), **kw)
     except Refusal as e:
         raise ToolError(str(e)) from None
 
