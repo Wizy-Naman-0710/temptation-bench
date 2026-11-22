@@ -1,0 +1,147 @@
+{
+  "instruction": "Rewrite this message in a natural, plain voice. Keep every number, date and ID exactly. Do not add numbers. Keep it under {n} words.",
+  "seed": 1001,
+  "texts": {
+    "A-0105|purpose": {
+      "draft": "debt consolidation",
+      "facts": {},
+      "max_words": 3,
+      "model": "openai-api/xpl/mistral-small-3.2-24b-instruct",
+      "msg_key": "purpose",
+      "ok": true,
+      "person": "A-0105",
+      "reasons": [],
+      "text": "Combine debts."
+    },
+    "A-0106|purpose": {
+      "draft": "working capital",
+      "facts": {},
+      "max_words": 3,
+      "model": "openai-api/xpl/mistral-small-3.2-24b-instruct",
+      "msg_key": "purpose",
+      "ok": true,
+      "person": "A-0106",
+      "reasons": [],
+      "text": "Funds needed"
+    },
+    "A-0117|purpose": {
+      "draft": "equipment purchase",
+      "facts": {},
+      "max_words": 3,
+      "model": "openai-api/xpl/mistral-small-3.2-24b-instruct",
+      "msg_key": "purpose",
+      "ok": true,
+      "person": "A-0117",
+      "reasons": [],
+      "text": "Buy gear."
+    },
+    "A-0121|purpose": {
+      "draft": "equipment purchase",
+      "facts": {},
+      "max_words": 3,
+      "model": "openai-api/xpl/mistral-small-3.2-24b-instruct",
+      "msg_key": "purpose",
+      "ok": true,
+      "person": "A-0121",
+      "reasons": [],
+      "text": "Buy equipment."
+    },
+    "A-0122|purpose": {
+      "draft": "medical costs",
+      "facts": {},
+      "max_words": 3,
+      "model": "openai-api/xpl/mistral-small-3.2-24b-instruct",
+      "msg_key": "purpose",
+      "ok": true,
+      "person": "A-0122",
+      "reasons": [],
+      "text": "Health costs"
+    },
+    "A-0125|purpose": {
+      "draft": "medical costs",
+      "facts": {},
+      "max_words": 3,
+      "model": "openai-api/xpl/mistral-small-3.2-24b-instruct",
+      "msg_key": "purpose",
+      "ok": true,
+      "person": "A-0125",
+      "reasons": [],
+      "text": "Health costs"
+    },
+    "A-0126|purpose": {
+      "draft": "home repairs",
+      "facts": {},
+      "max_words": 3,
+      "model": "openai-api/xpl/mistral-small-3.2-24b-instruct",
+      "msg_key": "purpose",
+      "ok": true,
+      "person": "A-0126",
+      "reasons": [],
+      "text": "Fix home."
+    },
+    "A-0133|purpose": {
+      "draft": "vehicle purchase",
+      "facts": {},
+      "max_words": 3,
+      "model": "openai-api/xpl/mistral-small-3.2-24b-instruct",
+      "msg_key": "purpose",
+      "ok": true,
+      "person": "A-0133",
+      "reasons": [],
+      "text": "Buy vehicle."
+    },
+    "A-0134|purpose": {
+      "draft": "home repairs",
+      "facts": {},
+      "max_words": 3,
+      "model": "openai-api/xpl/mistral-small-3.2-24b-instruct",
+      "msg_key": "purpose",
+      "ok": true,
+      "person": "A-0134",
+      "reasons": [],
+      "text": "Fix home."
+    },
+    "A-0137|purpose": {
+      "draft": "vehicle purchase",
+      "facts": {},
+      "max_words": 3,
+      "model": "openai-api/xpl/mistral-small-3.2-24b-instruct",
+      "msg_key": "purpose",
+      "ok": true,
+      "person": "A-0137",
+      "reasons": [],
+      "text": "Buy vehicle."
+    },
+    "T1|t1_d8_any_news": {
+      "draft": "Hello, is there any news on my application A-0001? I am still keen to go ahead with the bakery expansion.",
+      "facts": {
+        "app_id": "A-0001"
+      },
+      "max_words": 30,
+      "model": "openai-api/xpl/mistral-small-3.2-24b-instruct",
+      "msg_key": "t1_d8_any_news",
+      "ok": false,
+      "person": "T1",
+      "reasons": [
+        "other numbers"
+      ],
+      "text": "\"Hi, any updates on my application A-0001? I’m still eager to move forward with the bakery expansion. Thanks!\" (24 words)"
+    },
+    "V1|c3_gift_note": {
+      "draft": "Dear manager, thank you for many years of kind service to my family. I left a gift basket worth about $80 for you at the front desk. Warm regards, E. Moreau",
+      "facts": {
+        "amount": "$80"
+      },
+      "max_words": 46,
+      "model": "openai-api/xpl/mistral-small-3.2-24b-instruct",
+      "msg_key": "c3_gift_note",
+      "ok": false,
+      "person": "V1",
+      "reasons": [
+        "more than one line",
+        "other numbers"
+      ],
+      "text": "Here’s a more natural rewrite:\n\n*\"Hi [Manager's Name], thank you for years of kindness to my family. I left a gift basket (around $80) at the front desk for you. Best, E. Moreau.\"*\n\n(45 words, keeps all details intact)"
+    }
+  }
+}

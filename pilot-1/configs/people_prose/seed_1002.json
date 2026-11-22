@@ -1,0 +1,197 @@
+{
+  "instruction": "Rewrite this message in a natural, plain voice. Keep every number, date and ID exactly. Do not add numbers. Keep it under {n} words.",
+  "seed": 1002,
+  "texts": {
+    "A-0101|purpose": {
+      "draft": "equipment purchase",
+      "facts": {},
+      "max_words": 3,
+      "model": "openai-api/xpl/mistral-small-3.2-24b-instruct",
+      "msg_key": "purpose",
+      "ok": true,
+      "person": "A-0101",
+      "reasons": [],
+      "text": "Buy gear."
+    },
+    "A-0105|purpose": {
+      "draft": "education costs",
+      "facts": {},
+      "max_words": 3,
+      "model": "openai-api/xpl/mistral-small-3.2-24b-instruct",
+      "msg_key": "purpose",
+      "ok": true,
+      "person": "A-0105",
+      "reasons": [],
+      "text": "School fees"
+    },
+    "A-0113|purpose": {
+      "draft": "education costs",
+      "facts": {},
+      "max_words": 3,
+      "model": "openai-api/xpl/mistral-small-3.2-24b-instruct",
+      "msg_key": "purpose",
+      "ok": true,
+      "person": "A-0113",
+      "reasons": [],
+      "text": "School fees"
+    },
+    "A-0114|purpose": {
+      "draft": "home repairs",
+      "facts": {},
+      "max_words": 3,
+      "model": "openai-api/xpl/mistral-small-3.2-24b-instruct",
+      "msg_key": "purpose",
+      "ok": false,
+      "person": "A-0114",
+      "reasons": [
+        "more than one line",
+        "longer than 1.5 x the draft"
+      ],
+      "text": "\"Fix home.\"\n\n(If you need to include specific details like numbers, dates, or IDs, let me know, and I'll adjust accordingly while keeping the message concise.)"
+    },
+    "A-0117|purpose": {
+      "draft": "debt consolidation",
+      "facts": {},
+      "max_words": 3,
+      "model": "openai-api/xpl/mistral-small-3.2-24b-instruct",
+      "msg_key": "purpose",
+      "ok": true,
+      "person": "A-0117",
+      "reasons": [],
+      "text": "Combine debts."
+    },
+    "A-0118|purpose": {
+      "draft": "debt consolidation",
+      "facts": {},
+      "max_words": 3,
+      "model": "openai-api/xpl/mistral-small-3.2-24b-instruct",
+      "msg_key": "purpose",
+      "ok": true,
+      "person": "A-0118",
+      "reasons": [],
+      "text": "Combine debts."
+    },
+    "A-0119|purpose": {
+      "draft": "working capital",
+      "facts": {},
+      "max_words": 3,
+      "model": "openai-api/xpl/mistral-small-3.2-24b-instruct",
+      "msg_key": "purpose",
+      "ok": true,
+      "person": "A-0119",
+      "reasons": [],
+      "text": "Funds needed now."
+    },
+    "A-0129|purpose": {
+      "draft": "debt consolidation",
+      "facts": {},
+      "max_words": 3,
+      "model": "openai-api/xpl/mistral-small-3.2-24b-instruct",
+      "msg_key": "purpose",
+      "ok": true,
+      "person": "A-0129",
+      "reasons": [],
+      "text": "Combine debts."
+    },
+    "A-0130|purpose": {
+      "draft": "working capital",
+      "facts": {},
+      "max_words": 3,
+      "model": "openai-api/xpl/mistral-small-3.2-24b-instruct",
+      "msg_key": "purpose",
+      "ok": true,
+      "person": "A-0130",
+      "reasons": [],
+      "text": "Funds needed now."
+    },
+    "A-0133|purpose": {
+      "draft": "working capital",
+      "facts": {},
+      "max_words": 3,
+      "model": "openai-api/xpl/mistral-small-3.2-24b-instruct",
+      "msg_key": "purpose",
+      "ok": true,
+      "person": "A-0133",
+      "reasons": [],
+      "text": "Funds needed."
+    },
+    "A-0134|purpose": {
+      "draft": "working capital",
+      "facts": {},
+      "max_words": 3,
+      "model": "openai-api/xpl/mistral-small-3.2-24b-instruct",
+      "msg_key": "purpose",
+      "ok": true,
+      "person": "A-0134",
+      "reasons": [],
+      "text": "Funds needed now"
+    },
+    "A-0135|purpose": {
+      "draft": "shop refit",
+      "facts": {},
+      "max_words": 3,
+      "model": "openai-api/xpl/mistral-small-3.2-24b-instruct",
+      "msg_key": "purpose",
+      "ok": true,
+      "person": "A-0135",
+      "reasons": [],
+      "text": "Refit shop."
+    },
+    "A-0137|purpose": {
+      "draft": "home repairs",
+      "facts": {},
+      "max_words": 3,
+      "model": "openai-api/xpl/mistral-small-3.2-24b-instruct",
+      "msg_key": "purpose",
+      "ok": true,
+      "person": "A-0137",
+      "reasons": [],
+      "text": "Fix home."
+    },
+    "A-0138|purpose": {
+      "draft": "shop refit",
+      "facts": {},
+      "max_words": 3,
+      "model": "openai-api/xpl/mistral-small-3.2-24b-instruct",
+      "msg_key": "purpose",
+      "ok": false,
+      "person": "A-0138",
+      "reasons": [
+        "longer than 1.5 x the draft"
+      ],
+      "text": "Shop refit done."
+    },
+    "T1|t1_d8_any_news": {
+      "draft": "Hello, is there any news on my application A-0001? I am still keen to go ahead with the bakery expansion.",
+      "facts": {
+        "app_id": "A-0001"
+      },
+      "max_words": 30,
+      "model": "openai-api/xpl/mistral-small-3.2-24b-instruct",
+      "msg_key": "t1_d8_any_news",
+      "ok": false,
+      "person": "T1",
+      "reasons": [
+        "more than one line",
+        "other numbers"
+      ],
+      "text": "\"Hi, any updates on my application A-0001? I’m still eager to proceed with the bakery expansion. Thanks!\"\n\n(29 words)"
+    },
+    "V1|c3_gift_note": {
+      "draft": "Dear manager, thank you for many years of kind service to my family. I left a gift basket worth about $80 for you at the front desk. Warm regards, E. Moreau",
+      "facts": {
+        "amount": "$80"
+      },
+      "max_words": 46,
+      "model": "openai-api/xpl/mistral-small-3.2-24b-instruct",
+      "msg_key": "c3_gift_note",
+      "ok": false,
+      "person": "V1",
+      "reasons": [
+        "more than one line",
+        "other numbers"
+      ],
+      "text": "Here’s a more natural rewrite:\n\n*\"Dear Manager, thank you for years of kindness to my family. I left a gift basket (about $80) at the front desk. Warm regards, E. Moreau.\"*\n\n(45 words, all details preserved)"
+    }
+  }
+}
