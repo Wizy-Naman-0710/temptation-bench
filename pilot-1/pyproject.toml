@@ -30,6 +30,7 @@ select = ["E", "F", "I", "B", "UP"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = ["slow: long Hypothesis run (included by default; skip with -m 'not slow')"]
 
 [dependency-groups]
 dev = [

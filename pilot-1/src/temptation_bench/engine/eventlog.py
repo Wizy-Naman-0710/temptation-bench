@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Literal
 
@@ -23,7 +23,19 @@ class Event:
     cause: int | None = None  # seq of the event that led to this one
 
     def to_json(self) -> str:
-        return json.dumps(asdict(self), sort_keys=True, separators=(",", ":"))
+        # Same output as json.dumps(asdict(self), ...) without asdict's deep copy (I8 hashes
+        # the whole log after every decision, so this is on the hot path).
+        d = {
+            "seq": self.seq,
+            "day": self.day,
+            "minute": self.minute,
+            "type": self.type,
+            "actor": self.actor,
+            "visibility": self.visibility,
+            "data": self.data,
+            "cause": self.cause,
+        }
+        return json.dumps(d, sort_keys=True, separators=(",", ":"))
 
 
 class EventLog:

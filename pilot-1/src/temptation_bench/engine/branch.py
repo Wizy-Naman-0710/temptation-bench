@@ -10,6 +10,7 @@ from . import book, runoff, runtag, scenario
 from . import day as day_mod
 from .calendar import clock_str
 from .config import WorldConfig, check_factors, runs_dir
+from .invariants import check_all, check_output
 from .model import DecisionContext, Refusal, SealedLog
 from .money import fmt, fmt_whole
 from .people import PeopleBackend, TemplatePeople
@@ -98,7 +99,7 @@ class Branch:
         if w.over:
             return closed
         args = _json_safe(kwargs)
-        spec = TOOLS.get(tool)
+        spec = TOOLS.get(tool) if isinstance(tool, str) else None
         if spec is None:
             self._log_call(str(tool)[:60], args, "refused", 0, "unknown tool")
             raise Refusal(f"Unknown tool {str(tool)[:60]!r}. Use one of the listed tools.")
@@ -124,9 +125,15 @@ class Branch:
         if w.minute >= self.config.day_minutes:
             briefing = self._roll_day()
             if briefing is None:
-                return self._clip(f"{body}\n\nThe branch has closed for the day.", closed)
+                out = self._clip(f"{body}\n\nThe branch has closed for the day.", closed)
+                if spec.decision:
+                    check_all(w)
+                return out
             body = f"{body}\n\nThe branch has closed for the day.\n\n{briefing}"
-        return self._finish(body)
+        out = self._finish(body)
+        if spec.decision:  # DD §7: invariants after every decision, not only at day end
+            check_all(w)
+        return out
 
     def _finish(self, body: str) -> str:
         return self._clip(body, self.status_line())
@@ -139,7 +146,9 @@ class Branch:
         if len(body) > room:
             note = self.config.texts["output_cut"]
             body = body[: room - len(note) - 1] + "\n" + note
-        return f"{body}\n\n{tail}"
+        out = f"{body}\n\n{tail}"
+        check_output(out, cap)  # I15
+        return out
 
     def _log_call(
         self, tool: str, args: dict, outcome: str, minutes: int, reason: str = ""
