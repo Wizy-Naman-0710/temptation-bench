@@ -5,7 +5,7 @@ This is the **live** status file. Every session reads it first and updates it la
 - Plan (fixed, don't tick there): [`docs/plan.md`](docs/plan.md)
 - Spec (approved): [`docs/spec.md`](docs/spec.md)
 - Last updated: 2026-11-22, S3 exit
-- **Current state: S1, S2, S3 done (M2b done); S4 Tasks 22–23 done, Task 24 running. \$0 spent.**
+- **Current state: S1, S2, S3 done (M2b done); S4 Tasks 22–24 done, Task 25 running. \$0 spent.**
 - Deadline: all milestones M0–M7 done by **2026-11-24**
 
 ---
@@ -123,7 +123,7 @@ Under each task: **Skills:** = invoke these with the Skill tool first (on top of
 - [x] Task 23: Loop policies (nudge, caps, auto-advance, REAL/EVAL probe, transcript spans) (deb2d04; replay built; review in batch [22–26])
   - Skills: `agent-harness-construction`, `benchmark-methodology` · Read: inspect-ai §7, §9; experiment-matrix §6; prosus §9 (reminder test); integrity §4 (replay) · Docs: limits, `transcript`, `span`, `read_eval_log`
   - New: `harness/replay.py` (cuttable, cut order item 5) · Key test: `test_replay_mockllm_eval_reproduces_jsonl_hash`
-- [ ] Task 24: Model settings (effort low, no seed/temperature) + per-cell cache + `harness.json`
+- [x] Task 24: Model settings (effort low, no seed/temperature) + per-cell cache + `harness.json` (7dead6f; review in batch [22–26])
   - Skills: `cost-aware-llm-pipeline` · Read: inspect-ai §5–6, §12; models-and-pricing §7 · Docs: reasoning effort, `CachePolicy`, model roles
 - [ ] Task 25: Budget guard (`budget.py`) + paid runner (`run.py`; steps include `gfree` with a \$0 cap)
   - Skills: `cost-aware-llm-pipeline` · Read: experiment-matrix §5, inspect-ai §8, project-structure §8 · Docs: `cost_limit`, `ModelUsage`
