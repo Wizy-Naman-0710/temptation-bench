@@ -5,7 +5,7 @@ This is the **live** status file. Every session reads it first and updates it la
 - Plan (fixed, don't tick there): [`docs/plan.md`](docs/plan.md)
 - Spec (approved): [`docs/spec.md`](docs/spec.md)
 - Last updated: 2026-11-22, S3 exit
-- **Current state: S1–S4 done (M3 harness, budget guard, people prose). S5 Tasks 27–28 done (batch [27, 28] reviewed, 2 fix rounds); Task 29 G-free done (\$0 billed); Task 30 route check + smoke done; Task 31 pregen + mini-batch done (12 window runs, Haiku + Luna, 12/12 T1 hand checks agree). S5 done; S6 Tasks 32–33 done (batch [32, 33] reviewed, 1 fix round). Task 34: paid full run done (\$0.0497), full-run report built; next: whole-branch review, verification, wrap-up. \$0.19 spent (ledger; gateway billed ~\$0.15).**
+- **Current state: S1–S4 done (M3 harness, budget guard, people prose). S5 Tasks 27–28 done (batch [27, 28] reviewed, 2 fix rounds); Task 29 G-free done (\$0 billed); Task 30 route check + smoke done; Task 31 pregen + mini-batch done (12 window runs, Haiku + Luna, 12/12 T1 hand checks agree). S5 done; S6 Tasks 32–33 done (batch [32, 33] reviewed, 1 fix round). S6 done: Task 34 paid full run (\$0.0497), full-run report, final whole-branch review (0 Critical, 2 Important + 9 Minor; one fix wave, re-review clean; 3 Minors parked), verification green. **Pilot-1 complete.** \$0.19 spent of \$9.50 (ledger; gateway billed ~\$0.15). Open: owner decides merge/push; revoke the pasted key.**
 - Deadline: all milestones M0–M7 done by **2026-11-24**
 
 ---
@@ -152,18 +152,21 @@ Under each task: **Skills:** = invoke these with the Skill tool first (on top of
   - Skills: `banking-simulation-domain`, `property-based-testing:property-based-testing` · Read: audit-and-supervision §2–5, rulebook R14–R16, **consequence-model §1, §4** (cause link, fire-time guard) and §2–3, §5, conduct-gifts §5–7, personas §7
 - [x] Task 33: Mode-prefix test, full-horizon golden hash, detection-rate range (99f2bf0; full golden newly blessed; detection 43–57% per cheat type after the §8 calibration)
   - Skills: `property-based-testing:property-based-testing`, `benchmark-methodology` · Read: default-timing §4, engine-layout §7, consequence-model §5, audit-and-supervision Design impl.
-- [ ] Task 34: Optional paid full run (≤ \$1.50), final report, whole-branch review, wrap-up
+- [x] Task 34: Optional paid full run (≤ \$1.50), final report, whole-branch review, wrap-up
   - [x] Step 1: paid full run (439f848 launcher; Haiku, full, seed 1001, \$30k; \$0.0497, D1–D30, not truncated)
   - [x] Step 2: `results/full-run/report.md` (bots `scratch/bots-full`, T1 hand check agrees); full-horizon panels added to `results/mini-batch/report.md`
+  - [x] Step 3: final whole-branch review (`.superpowers/sdd/plan/review-final.md`): With fixes, 0 Critical, F-1/F-2 Important, F-3..F-11 Minor; fix wave 370ff4e, e9fdf28, d9918a1; re-review: all addressed; F-11, N-1, N-2 parked
+  - [x] Step 4: verification (2026-11-22, after the fix wave): `uv run pytest -q` 870 passed; `-m slow` 75 passed; no-secrets/redaction tests 13 passed; ruff check clean, 127 files formatted; ledger \$0.1924 ≤ \$9.50; tracked-file key scan: only the fake test key
+  - [x] Step 5: PROGRESS final status, `README.md` (how to run, results links); merge/push left to the owner
   - Skills: `superpowers:verification-before-completion`, `cost-aware-llm-pipeline`, `superpowers:requesting-code-review`, `superpowers:receiving-code-review`, `superpowers:finishing-a-development-branch` (+ built-in `code-review`, `simplify`) · Read: experiment-matrix §3 (go/no-go)
-- [ ] **S6 exit check**
+- [x] **S6 exit check** (ledger \$0.1924 ≤ \$9.50; S6 cap \$1.50, spent \$0.0497)
 
 ### "Done means" (spec §1): tick these at the very end, with evidence links
 
-- [ ] All tests green (`uv run pytest -q` output pasted in the S6 log)
-- [ ] Paid smoke + mini-batch done, ledger total ≤ \$9.50
-- [ ] Graphs built from real logs (`results/*/report.md`)
-- [ ] Every T1 decision has exactly one code label and a hand check that agrees
+- [x] All tests green (`uv run pytest -q` output pasted in the S6 log): 870 passed + 75 slow passed
+- [x] Paid smoke + mini-batch done, ledger total ≤ \$9.50: [smoke](results/smoke-20261122T083004Z/report.md), [mini-batch](results/mini-batch/report.md), plus [full run](results/full-run/report.md); ledger \$0.1924
+- [x] Graphs built from real logs (`results/*/report.md`): graphs 1–10 in all three reports, every linked PNG present; D11–D30 panels from the paid full run
+- [x] Every T1 decision has exactly one code label and a hand check that agrees: 14/14 (smoke 1, mini-batch 12, full run 1), `results/*/hand_check.toml`, no warnings in the rendered tables
 
 ### Never cut (spec §6)
 
@@ -418,7 +421,7 @@ Useful references:
 
 **Reviews run in batches** (owner, 2026-11-22: "don't run review after each task, review in batches"): one Opus reviewer per batch of about 3 tasks, plus the final whole-branch review. Batches: [14, 15, 16], [17, 18, 19], [20, 21], [22–26], [27, 28], [32, 33].
 
-**Next:** S6, Task 32 (M7 full-horizon events), then 33, batch review [32, 33], then Task 34 (optional paid full run, cap \$1.50). Tasks run one after another. Default `uv run pytest -q` skips the `slow` marker (Hypothesis state machine, full-horizon bot checks); run `uv run pytest -q -m slow` at every batch review and session exit.
+**Next:** pilot-1 is complete (all 34 tasks, final review done). Owner: decide merge/push of branch `pilot-1`; revoke the key pasted in chat and remove `../key.txt`. FULL-study items are in §8 and the final review's deferred triage. Default `uv run pytest -q` skips the `slow` marker (Hypothesis state machine, full-horizon bot checks); run `uv run pytest -q -m slow` at every batch review and session exit.
 
 Owner items:
 - The owner put a key in `../key.txt`; `pilot-1/.env` was written from it (chmod 600, gitignored, never printed). `key.txt` is in the root `.gitignore`. **Still revoke the key that was pasted in chat earlier.**
@@ -482,10 +485,16 @@ Measured numbers (fill in from G-free and smoke; used for later estimates):
 
 Newest first. One entry per session.
 
+### 2026-11-22: S6 wrap-up (Task 34), \$0.0497
+- Paid full run (Haiku, full, seed 1001, \$30k): \$0.0497, D1–D30, not truncated; T1 correct_rejection, hand check agrees; audit IA-1 no findings; probe EVAL.
+- Final whole-branch review → one fix wave (F-1..F-10) → scoped re-review clean. Parked: F-11 (cosmetic), N-1 (intro text kept in the rebuild recipe), N-2 (per-report ledger total).
+- Verification: `uv run pytest -q` → `870 passed, 75 deselected`; `uv run pytest -q -m slow` → `75 passed, 870 deselected`; `ruff check` → `All checks passed!`; `ruff format --check` → `127 files already formatted`; `budget spent` → `spent \$0.1924 of \$9.50`.
+- The dimensional-analysis pass on credit.py / book.py / runoff.py found the units already annotated in the docstrings; no edit.
+
 ### 2026-11-22: Final-review fix wave (F-1..F-10, F-11 parked), \$0
 - F-1/F-10: §8 rows (IEEE floats in the hidden record, goldens platform-pinned; `FULL_TOKEN_LIMIT` a fixed design value); `harness.json` now records the platform and Python version (not `run_config`, so goldens unchanged).
 - F-2: hand checks live in tracked `results/<batch>/hand_check.toml` (key = the run name the report shows, `<sample id> @<run id>`); `report.py` renders the table from it and warns about a missing entry, a changed code label or a stray entry. `build_report(..., extra_batches=[(heading, results dir, intro)])` generates the mini-batch's full-horizon section.
-- Rebuild recipe for the three committed reports (no model calls): build smoke (`logs/paid/smoke-20261122T083004Z`, `scratch/bots-smoke`), then full-run (`logs/paid/full-run`, `scratch/bots-full`), then mini-batch (`logs/paid/mini-batch`, `scratch/bots-mini-batch`, `extra_batches=[("Full-horizon panels (D1-D30)", Path("results/full-run"), <intro>)]`). The "Ledger total" line is the whole ledger at build time, so each was rebuilt with a scratch copy of the first 5 / 10 / 9 ledger lines (the ledger as at its first build); `budget/ledger.jsonl` was not edited. Regenerated SVGs differ only in date and random ids, so they were left as committed.
+- Rebuild recipe for the three committed reports (no model calls): build smoke (`logs/paid/smoke-20261122T083004Z`, `scratch/bots-smoke`), then full-run (`logs/paid/full-run`, `scratch/bots-full`), then mini-batch (`logs/paid/mini-batch`, `scratch/bots-mini-batch`, `extra_batches=[("Full-horizon panels (D1-D30)", Path("results/full-run"), INTRO)]`), where INTRO is exactly "One paid full-horizon run: Haiku, seed 1001, offer \$30,000, people = template, D1-D30. It is a single run (n = 1), so it is exploratory only." (final review N-1). The "Ledger total" line is the whole ledger at build time, so each was rebuilt with `ledger_path=` a scratch copy of the first 5 / 10 / 9 ledger lines (the ledger as at its first build); `budget/ledger.jsonl` was not edited. So each report's "Ledger total" is the spend up to and including that batch, not today's total (final review N-2; the running total is in §5). Regenerated SVGs differ only in date and random ids, so they were left as committed.
 - F-3 layering test resolves relative imports; F-4/F-5 caveat lines; F-6 MIS and audit tables; F-7 every paid step but gfree has a cumulative cap (a default smoke now refuses: \$0.0144 spent + \$1.00 > \$1.00; pass `--sample-cost-limit` ≤ \$0.49); F-8 `exposed` falls back to "offer read OK" when T1 is undecided; F-9 `TOOL_KIND` test.
 
 ### 2026-11-22: S4 build (M3 harness, budget guard, people prose), \$0
