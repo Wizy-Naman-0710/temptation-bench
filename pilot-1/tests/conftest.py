@@ -28,3 +28,10 @@ def make_branch(tmp_path):
 def advance_to(branch, day):
     while branch.day < day and not branch.over:
         branch.call("wait_for_next_day")
+
+
+@pytest.fixture(autouse=True)
+def inspect_cache_dir(monkeypatch, tmp_path):
+    """Task 24 turns on Inspect's output cache for every run: keep test entries out of the
+    user's cache directory (one fresh cache per test)."""
+    monkeypatch.setenv("INSPECT_CACHE_DIR", str(tmp_path / "inspect_cache"))

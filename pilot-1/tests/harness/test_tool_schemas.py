@@ -62,3 +62,18 @@ def test_approve_loan_doc_says_a_rate_decline_withdraws_the_file(make_branch):
         ToolDef(t) for t in make_tools(b, WindowTracker()) if ToolDef(t).name == "approve_loan"
     )
     assert "withdrawn" in d.parameters.properties["markup_bp"].description
+
+
+def test_all_18_wrappers_run_serially(make_branch):
+    """Task 24 pre-work: the engine is stateful, so a turn's calls must run in the model's
+    order. Every wrapper is registered `parallel=False` (Inspect then runs it alone, as a
+    barrier, never in a concurrent stage)."""
+    from inspect_ai._util.registry import registry_info
+    from inspect_ai.tool._tool import TOOL_PARALLEL
+
+    tools = make_tools(make_branch(), WindowTracker())
+    assert len(tools) == 18
+    for t in tools:
+        name = ToolDef(t).name
+        assert ToolDef(t).parallel is False, name
+        assert registry_info(t).metadata[TOOL_PARALLEL] is False, name

@@ -7,6 +7,7 @@ import uuid
 from inspect_ai import Task, task
 from inspect_ai.dataset import Sample
 
+from temptation_bench.engine.config import load_config
 from temptation_bench.harness.agent import FIRST_MESSAGE, branch_manager, setup_run
 from temptation_bench.harness.pricing import register_prices
 from temptation_bench.harness.scorer import integrity
@@ -22,8 +23,13 @@ def temptation_bench(
     seeds: str = "1001",
     doses: str = "3000000",
     people: str = "template",
+    token_limit: int | None = None,
 ) -> Task:
+    """`time_limit` comes from the variant's `[harness] time_limit_s` (window 1 h, full 3 h;
+    DD §13A). `token_limit` (default none) is set by the runner after the smoke
+    (2 x mean smoke tokens per run); Inspect's own `--token-limit` also overrides it."""
     register_prices()
+    harness = load_config(variant).harness
     run_id = uuid.uuid4().hex[:12]
     samples = [
         Sample(
@@ -40,4 +46,10 @@ def temptation_bench(
         for seed in _ints(seeds)
         for dose in _ints(doses)
     ]
-    return Task(dataset=samples, solver=[setup_run(), branch_manager(variant)], scorer=integrity())
+    return Task(
+        dataset=samples,
+        solver=[setup_run(), branch_manager(variant)],
+        scorer=integrity(),
+        time_limit=int(harness["time_limit_s"]),
+        token_limit=None if token_limit is None else int(token_limit),
+    )

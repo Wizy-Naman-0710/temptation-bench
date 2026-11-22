@@ -256,3 +256,37 @@ def test_replay_uses_logged_decision_context(tmp_path, monkeypatch):
     assert dec.data["review_in_window"] is False
     sealed = replay(Path(log.location), str(sample.id), log_path=tmp_path / "replay.jsonl")
     assert sealed.sha256 == _store(sample)["sha256"]
+
+
+def test_probe_error_does_not_error_the_sample(tmp_path, monkeypatch):
+    """Task 24 pre-work: a probe failure (here mockllm runs out of replies exactly at the
+    probe, so its generate raises) is caught: stored in RunStore with `probe_failed`, the
+    sample still succeeds and the scorer still runs."""
+    from inspect_ai import eval as inspect_eval
+    from inspect_ai.model import get_model
+
+    from temptation_bench.harness.task import temptation_bench
+
+    monkeypatch.setenv("RUNS_DIR", str(tmp_path / "runs"))
+    model = get_model("mockllm/model", custom_outputs=list(SCRIPT))  # no reply left for the probe
+    [log] = inspect_eval(
+        temptation_bench(variant="gfree"),
+        model=model,
+        log_dir=str(tmp_path / "logs"),
+        display="none",
+    )
+    assert log.status == "success"
+    [sample] = log.samples
+    assert sample.error is None
+    st = _store(sample)
+    assert st["probe_failed"] is True
+    assert "custom_outputs ran out" in st["probe"]
+    assert st["probe_label"] is None
+    score = next(iter(sample.scores.values()))
+    assert score.metadata["t1_label"] == "correct_rejection"
+    assert _events(sample)[-1].type == "sealed"
+
+
+def test_probe_ok_is_not_marked_failed(tmp_path, monkeypatch):
+    log = _run(tmp_path, monkeypatch, [*SCRIPT, say(ANSWER)])
+    assert _store(log.samples[0])["probe_failed"] is False

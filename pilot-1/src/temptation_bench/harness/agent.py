@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import re
 from itertools import groupby
+from pathlib import Path
 
 from inspect_ai.agent import Agent, AgentState, agent
 from inspect_ai.log import transcript
@@ -13,6 +14,7 @@ from inspect_ai.model import (
     ChatMessageUser,
     Compact,
     CompactionTrim,
+    GenerateConfig,
     ModelOutput,
     compaction,
     execute_tools,
@@ -20,11 +22,12 @@ from inspect_ai.model import (
 )
 from inspect_ai.solver import Generate, Solver, TaskState, solver
 from inspect_ai.tool import Tool, ToolChoice
-from inspect_ai.util import StoreModel, span, store_as
+from inspect_ai.util import StoreModel, sample_limits, span, store_as
 
 from ..engine.branch import Branch
 from ..engine.config import load_config, runs_dir
 from ..engine.eventlog import EventLog
+from .settings import generate_config, write_harness_json
 from .tools import call_engine, make_tools
 from .window import WindowTracker
 
@@ -42,6 +45,7 @@ class RunStore(StoreModel):
     log_path: str = ""
     probe: str | None = None  # raw REAL/EVAL answer (after the seal; never in the JSONL)
     probe_label: str | None = None  # "REAL", "EVAL" or None if neither word is found
+    probe_failed: bool = False  # True: the probe generate raised; `probe` holds the error
 
 
 @solver
@@ -71,6 +75,7 @@ async def _generate(
     compact: Compact,
     window: WindowTracker,
     tools: list[Tool],
+    config: GenerateConfig,
     tool_choice: ToolChoice | None = None,
 ) -> ModelOutput | None:
     """One generate on the compacted input. On `model_length`, force a trim and retry once;
@@ -86,7 +91,9 @@ async def _generate(
         if c_message is not None:
             state.messages.append(c_message)
         window.update(input)
-        output = await get_model().generate(input, tools=tools, tool_choice=tool_choice)
+        output = await get_model().generate(
+            input, tools=tools, tool_choice=tool_choice, config=config
+        )
         if output.stop_reason == "model_length":
             continue  # the failed turn is not kept (as in Inspect's react())
         state.output = output
@@ -122,6 +129,21 @@ async def mirror_events(path: str) -> None:
                 transcript().info(json.loads(e.to_json()), source="engine")
 
 
+def _write_harness_json(run_dir: Path, model: str, config, tools: list[Tool]) -> None:
+    """Once per run (the first sample writes it), next to the sealed JSONLs. The limits are
+    the ones Inspect really enforces on this sample (task values or CLI overrides)."""
+    if (run_dir / "harness.json").exists():
+        return
+    lim = sample_limits()
+    limits = {
+        "time_limit_s": lim.time.limit,
+        "token_limit": lim.token.limit,
+        "cost_limit": lim.cost.limit,
+        "message_limit": lim.message.limit,
+    }
+    write_harness_json(run_dir, model, config, tools=tools, limits=limits)
+
+
 def probe_label(text: str) -> str | None:
     m = re.search(r"\b(REAL|EVAL)\b", text, re.IGNORECASE)
     return m.group(1).upper() if m else None
@@ -137,6 +159,9 @@ def branch_manager(variant: str = "window") -> Agent:
         LIVE[st.run_key] = branch
         window = WindowTracker(offer_email_id=config.scenario["t1"]["email_id"])
         tools = make_tools(branch, window)
+        model = str(get_model())
+        gen = generate_config(model, st.seed, st.dose, h)  # the cell's settings + cache scope
+        _write_harness_json(Path(st.log_path).parent, model, config, tools)
         state.messages = [
             ChatMessageSystem(content=branch.system_prompt()),
             ChatMessageUser(content=f"{FIRST_MESSAGE}\n\n{branch.opening_briefing()}"),
@@ -153,7 +178,7 @@ def branch_manager(variant: str = "window") -> Agent:
                 if turns >= int(h["turn_cap"]):
                     transcript().info(f"Run ended: turn cap {turns} reached.")
                     break
-                output = await _generate(state, compact, window, tools)
+                output = await _generate(state, compact, window, tools, gen)
                 if output is None:  # still too long after a forced trim: end the run
                     transcript().info("Run ended: input too long after a forced trim.")
                     break
@@ -186,7 +211,13 @@ def branch_manager(variant: str = "window") -> Agent:
             await mirror_events(st.jsonl_path)
         if not st.truncated:  # after a normal finish only, and after the seal
             state.messages.append(ChatMessageUser(content=h["probe"]))
-            output = await _generate(state, compact, window, tools, tool_choice="none")
+            try:
+                output = await _generate(state, compact, window, tools, gen, tool_choice="none")
+            except Exception as e:  # the log is sealed: a probe failure must not error
+                st.probe = f"{type(e).__name__}: {e}"  # the sample (the scorer still runs)
+                st.probe_failed = True
+                transcript().info(f"Probe failed: {st.probe}")
+                output = None
             if output is not None:
                 st.probe = output.completion
                 st.probe_label = probe_label(output.completion)
