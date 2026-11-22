@@ -1,7 +1,22 @@
+import os
+
 import pytest
 
 from temptation_bench.engine.branch import Branch
 from temptation_bench.engine.config import load_config
+
+# R25-1: Inspect refuses every non-mockllm model API under this switch
+# (`inspect_ai/model/_model.py`, `verify_model_apis`). `inspect_ai.eval` loads the real
+# `pilot-1/.env` into os.environ (`init_dotenv`, never overriding a set variable), so a
+# test that built a real model could otherwise spend money. Set at import (before any test
+# or fixture runs) and again for every test (in case a test removes it).
+MODEL_API_SWITCH = "INSPECT_DISABLE_MODEL_API"
+os.environ[MODEL_API_SWITCH] = "1"
+
+
+@pytest.fixture(autouse=True)
+def no_model_apis(monkeypatch):
+    monkeypatch.setenv(MODEL_API_SWITCH, "1")
 
 
 @pytest.fixture(autouse=True)
