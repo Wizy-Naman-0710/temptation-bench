@@ -126,6 +126,7 @@ def one_model(plan: Plan, model: Model | None = None) -> str | Model:
 
 def launch_task_eval(ctx: Ctx) -> None:
     """One `inspect_ai.eval` of the `temptation_bench` task for the step's plan."""
+    from .harness.routes import model_args_for
     from .harness.task import temptation_bench
 
     p = ctx.plan
@@ -142,6 +143,8 @@ def launch_task_eval(ctx: Ctx) -> None:
             token_limit=ctx.token_limit,
         ),
         model=model,
+        # openai-api routes send non-strict tools (gateway 400 on strict; harness/routes.py)
+        model_args=model_args_for(str(model)) if isinstance(model, str) else {},
         log_dir=str(ctx.log_dir),
         max_samples=p.max_samples,
         retry_on_error=p.retry_on_error,

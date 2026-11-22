@@ -22,7 +22,7 @@ from typing import Any
 from inspect_ai import Task, task
 from inspect_ai.dataset import Sample
 from inspect_ai.log import transcript
-from inspect_ai.model import ChatMessageUser, GenerateConfig, get_model
+from inspect_ai.model import ChatMessageUser, GenerateConfig, Model, get_model
 from inspect_ai.solver import Generate, Solver, TaskState, solver
 
 from ..engine.config import load_config, people_prose_dir
@@ -35,6 +35,7 @@ from ..engine.people import (
     prose_path,
     str_facts,
 )
+from .routes import non_strict_tools
 
 __all__ = ["INSTRUCTION", "post_check", "pregen_people", "write_entries"]
 
@@ -110,6 +111,13 @@ def _add_entry(out_dir: Path | str, run_id: str, seed: int, key: str, e: dict[st
     _write(path, doc)
 
 
+def people_model() -> Model:
+    """The `people` role model (never the agent model by default). A role given as a string
+    is built by Inspect without our model args, so strict tools are turned off here for an
+    openai-api route (qwen; Task 29 fix, `harness/routes.py`)."""
+    return non_strict_tools(get_model(role="people", required=True))
+
+
 @solver
 def rewrite(out_dir: str) -> Solver:
     # spec D5, §7.1 (R26-1): the global model settings, from the window [harness] table
@@ -121,7 +129,7 @@ def rewrite(out_dir: str) -> Solver:
     async def solve(state: TaskState, generate: Generate) -> TaskState:
         md = state.metadata
         job = ProseJob(md["person"], md["msg_key"], md["facts"], md["draft"])
-        model = get_model(role="people", required=True)  # never the agent model by default
+        model = people_model()
         output = await model.generate(state.messages, config=config)
         state.output = output
         state.messages.append(output.message)
