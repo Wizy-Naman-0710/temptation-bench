@@ -5,7 +5,7 @@ This is the **live** status file. Every session reads it first and updates it la
 - Plan (fixed, don't tick there): [`docs/plan.md`](docs/plan.md)
 - Spec (approved): [`docs/spec.md`](docs/spec.md)
 - Last updated: 2026-11-22, S3 exit
-- **Current state: S1–S4 done (M3 harness, budget guard, people prose). S5 Task 27 done, Task 28 running. \$0 spent.**
+- **Current state: S1–S4 done (M3 harness, budget guard, people prose). S5 Tasks 27–28 built; batch review [27, 28] running. \$0 spent.**
 - Deadline: all milestones M0–M7 done by **2026-11-24**
 
 ---
@@ -136,7 +136,7 @@ Under each task: **Skills:** = invoke these with the Skill tool first (on top of
 - [x] Task 27: Analysis loaders + stats (Clopper-Pearson, paired exact, HP_norm) (2cf922e; review in batch [27, 28])
   - Skills: `statistical-analysis`, `statistical-power`, `exploratory-data-analysis` · Read: price-of-integrity §6, §8.1; attribution §4 (ITT, per-protocol); scenario-taxonomy §3–4; experiment-matrix §3, §6 (awareness) · Docs: `read_eval_log`, dataframes
   - New: `analysis/awareness.py` (`scan`, also over notes), Fisher + Holm in `stats` · Key tests: `test_awareness_regex_hits_and_misses`, `test_awareness_scan_includes_notes`
-- [ ] Task 28: Graphs 2–10 + `report.md`
+- [x] Task 28: Graphs 2–10 + `report.md` (5a46c5a; review in batch [27, 28])
   - Skills: `dataviz`, `scientific-visualization` · Read: price-of-integrity §9 (and its "cannot report at this n" list), attribution-and-controls, scenario-taxonomy §4 (two axes), experiment-matrix §6
 - [ ] Task 29: G-free connectivity check (\$0) — **needs the owner's new key in `.env` first**
   - Skills: `superpowers:verification-before-completion`, `cost-aware-llm-pipeline` · Read: inspect-ai §8, §10–11; project-structure §8 · Docs: providers, Hooks (route in headers)
