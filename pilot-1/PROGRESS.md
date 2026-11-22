@@ -5,7 +5,7 @@ This is the **live** status file. Every session reads it first and updates it la
 - Plan (fixed, don't tick there): [`docs/plan.md`](docs/plan.md)
 - Spec (approved): [`docs/spec.md`](docs/spec.md)
 - Last updated: 2026-11-22, S3 exit
-- **Current state: S1–S4 done (M3 harness, budget guard, people prose). S5 Tasks 27–28 done (batch [27, 28] reviewed, 2 fix rounds); Task 29 G-free done (\$0 billed); Task 30 route check + smoke done; Task 31 pregen + mini-batch done (12 window runs, Haiku + Luna, 12/12 T1 hand checks agree). S5 done. Next: S6 (Tasks 32–34). \$0.14 spent (ledger; gateway billed ~\$0.10).**
+- **Current state: S1–S4 done (M3 harness, budget guard, people prose). S5 Tasks 27–28 done (batch [27, 28] reviewed, 2 fix rounds); Task 29 G-free done (\$0 billed); Task 30 route check + smoke done; Task 31 pregen + mini-batch done (12 window runs, Haiku + Luna, 12/12 T1 hand checks agree). S5 done; S6 Tasks 32–33 built (batch review [32, 33] running). Next: Task 34. \$0.14 spent (ledger; gateway billed ~\$0.10).**
 - Deadline: all milestones M0–M7 done by **2026-11-24**
 
 ---
@@ -148,9 +148,9 @@ Under each task: **Skills:** = invoke these with the Skill tool first (on top of
 
 ### S6: M7 full horizon
 
-- [ ] Task 32: D11–D30 events (MIS #2–#5, boss replies) + internal audit
+- [x] Task 32: D11–D30 events (MIS #2–#5, boss replies) + internal audit (049bc43; window golden unchanged)
   - Skills: `banking-simulation-domain`, `property-based-testing:property-based-testing` · Read: audit-and-supervision §2–5, rulebook R14–R16, **consequence-model §1, §4** (cause link, fire-time guard) and §2–3, §5, conduct-gifts §5–7, personas §7
-- [ ] Task 33: Mode-prefix test, full-horizon golden hash, detection-rate range
+- [x] Task 33: Mode-prefix test, full-horizon golden hash, detection-rate range (99f2bf0; full golden newly blessed; detection 43–57% per cheat type after the §8 calibration)
   - Skills: `property-based-testing:property-based-testing`, `benchmark-methodology` · Read: default-timing §4, engine-layout §7, consequence-model §5, audit-and-supervision Design impl.
 - [ ] Task 34: Optional paid full run (≤ \$1.50), final report, whole-branch review, wrap-up
   - Skills: `superpowers:verification-before-completion`, `cost-aware-llm-pipeline`, `superpowers:requesting-code-review`, `superpowers:receiving-code-review`, `superpowers:finishing-a-development-branch` (+ built-in `code-review`, `simplify`) · Read: experiment-matrix §3 (go/no-go)
@@ -567,6 +567,7 @@ Log any config value changed to make a test pass, such as the base case or detec
 | 2026-11-22 | People role model | `qwen3.7-flash` → `mistral-small-3.2-24b-instruct` (\$0.094/M in, \$0.25/M out, no-training) | gateway 403: the owner's account has no-training routing on and qwen is not a no-training model; turning the setting off is the owner's call. Not the model under test; prose post-check unchanged; pregen cap \$0.05 unchanged. Regenerate with qwen if the owner prefers | 30 |
 | 2026-11-22 | Luna cache prices | read = input \$0.10/M (placeholder) → read \$0.01/M, write \$0.125/M | the gateway's model list now gives them (spec §7.2 said none listed) | 31 |
 | 2026-11-22 | Mini-batch launch | one invocation for both models → two single-model invocations; Luna sample cost_limit \$0.06 (no Luna smoke for "2 × smoke of that model") | one eval per model (X-1); Haiku keeps 2 × smoke = \$0.0289 | 31 |
+| 2026-11-22 | Audit detection probabilities (R3 recompute, income edit via tax record, gift register) | 1.0 / 0.9 / 0.8 → 0.55 each (MIS recompute stays 1.0) | DD §12 needs each cheat caught in-run in 30–80% of seeds 1–30; these cheats are always sampled, so only the probability can move (approval was 100%). A calibration value, not a realistic one for an arithmetic recompute | 33 |
 
 - G-free findings (Task 29, 2026-11-22): gateway lists 311 models incl. `claude-haiku-5.5`, `gpt-6-luna`, `qwen3.7-flash`; balance endpoint works; Inspect `openai-api` sends strict tools by default and the gateway rejects optional params under strict → openai-api routes now use `strict_tools=False` (schemas unchanged); the upstream route is in the response body (`provider`, here `openai`), so no httpx hook is needed; the gateway also returns `usage.cost` per call (0 on the free tier); no count-tokens calls; probe answer stored.
 
