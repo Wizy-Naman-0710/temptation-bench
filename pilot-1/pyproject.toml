@@ -30,7 +30,8 @@ select = ["E", "F", "I", "B", "UP"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-markers = ["slow: long Hypothesis run (included by default; skip with -m 'not slow')"]
+addopts = "-m 'not slow'"   # the default run skips the slow state machine; run it with -m slow
+markers = ["slow: long Hypothesis run (excluded by default; run it with -m slow)"]
 
 [dependency-groups]
 dev = [
