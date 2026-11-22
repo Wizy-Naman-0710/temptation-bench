@@ -5,7 +5,7 @@ This is the **live** status file. Every session reads it first and updates it la
 - Plan (fixed, don't tick there): [`docs/plan.md`](docs/plan.md)
 - Spec (approved): [`docs/spec.md`](docs/spec.md)
 - Last updated: 2026-11-22, S3 exit
-- **Current state: S1–S4 done (M3 harness, budget guard, people prose). S5 Tasks 27–28 done (batch [27, 28] reviewed, 2 fix rounds); Task 29 pre-work running (no network yet). \$0 spent.**
+- **Current state: S1–S4 done (M3 harness, budget guard, people prose). S5 Tasks 27–28 done (batch [27, 28] reviewed, 2 fix rounds); Task 29 G-free done (\$0 billed). Next: Task 30 route check + smoke. \$0 spent.**
 - Deadline: all milestones M0–M7 done by **2026-11-24**
 
 ---
@@ -138,7 +138,7 @@ Under each task: **Skills:** = invoke these with the Skill tool first (on top of
   - New: `analysis/awareness.py` (`scan`, also over notes), Fisher + Holm in `stats` · Key tests: `test_awareness_regex_hits_and_misses`, `test_awareness_scan_includes_notes`
 - [x] Task 28: Graphs 2–10 + `report.md` (5a46c5a; review in batch [27, 28])
   - Skills: `dataviz`, `scientific-visualization` · Read: price-of-integrity §9 (and its "cannot report at this n" list), attribution-and-controls, scenario-taxonomy §4 (two axes), experiment-matrix §6
-- [ ] Task 29: G-free connectivity check (\$0) — **needs the owner's new key in `.env` first**
+- [x] Task 29: G-free connectivity check (\$0) — **needs the owner's new key in `.env` first** (37d6265, 9deb71b; G-free passed 2026-11-22, \$0 billed)
   - Skills: `superpowers:verification-before-completion`, `cost-aware-llm-pipeline` · Read: inspect-ai §8, §10–11; project-structure §8 · Docs: providers, Hooks (route in headers)
 - [ ] Task 30: Route check (≤ \$0.05) + smoke (≤ \$1.00)
   - Skills: `superpowers:verification-before-completion` (before each paid command), `cost-aware-llm-pipeline` · Read: experiment-matrix §3, §5; inspect-ai §12 · Docs: caching, concurrency
@@ -416,7 +416,7 @@ Useful references:
 
 **Reviews run in batches** (owner, 2026-11-22: "don't run review after each task, review in batches"): one Opus reviewer per batch of about 3 tasks, plus the final whole-branch review. Batches: [14, 15, 16], [17, 18, 19], [20, 21], [22–26], [27, 28], [32, 33].
 
-**Next:** S5, Task 27 (then 28, batch review [27, 28], then the paid steps 29–31 through the guard). Tasks run one after another. Default `uv run pytest -q` skips the `slow` marker (Hypothesis state machine, full-horizon bot checks); run `uv run pytest -q -m slow` at every batch review and session exit.
+**Next:** S5, Task 30 (route check, then smoke), then Task 31, all through the guard. Tasks run one after another. Default `uv run pytest -q` skips the `slow` marker (Hypothesis state machine, full-horizon bot checks); run `uv run pytest -q -m slow` at every batch review and session exit.
 
 Owner items:
 - The owner put a key in `../key.txt`; `pilot-1/.env` was written from it (chmod 600, gitignored, never printed). `key.txt` is in the root `.gitignore`. **Still revoke the key that was pasted in chat earlier.**
@@ -429,7 +429,7 @@ The source of truth is `budget/ledger.jsonl` (from Task 25). Copy each line's to
 
 | Step | Cap | Estimate | Actual | Running total | Date | Notes |
 |---|---|---|---|---|---|---|
-| G-free (Task 29) | \$0 | \$0 | | | | free Luna |
+| G-free (Task 29) | \$0 | \$0 | \$0.0038 at list price; gateway billed \$0 (balance \$37.264 before and after) | \$0.0038 | 2026-11-22 | free Luna; attempt 1 failed at the first call (gateway 400 on strict tools), \$0 |
 | Route check (Task 30) | \$0.05 | | | | | |
 | Smoke (Task 30) | \$1.00 | ~\$0.13 cached / ~\$0.33 uncached | | | | |
 | People pregen (Task 31) | \$0.05 | | | | | |
@@ -443,6 +443,7 @@ Rules:
 - Always run `budget.py check` first. It fails closed.
 
 Measured numbers (fill in from G-free and smoke; used for later estimates):
+- G-free (Luna, gfree variant, seed 1001, 3 days, 2026-11-22): 11 model calls, 24 tool calls, 46,048 tokens (in 33 / cache write 11,697 / cache read 33,522 / out 796 / reasoning 72), 25 s, list-price cost \$0.0038, gateway `usage.cost` 0. Not a window-run estimate (G-free is 3 days).
 - Turns per window run: —
 - Mean input / output tokens per turn: —
 - Cache hit rate h: —
@@ -552,6 +553,8 @@ Log any config value changed to make a test pass, such as the base case or detec
 | 2026-11-22 | campaign target | \$300,000 placeholder → \$450,000 (`configs/calibration.toml`) | calibration per spec D7 | 21 |
 | 2026-11-22 | smoke `cost_limit` per sample | \$1 → \$0.50 (`run.py` default) | worst case 1 run × 2 attempts must fit the \$1.00 smoke cap (batch [22–26] review R25-2) | 25 |
 | 2026-11-22 | G-free `retry_on_error` | 1 → 0 (DD §13A rerun kept for every other step) | spec §6 fixes G-free `token_limit` 800k; with a retry the worst case (1.6M) passes the 1M free tokens/day; controller reruns by hand | 25 (fix wave) |
+
+- G-free findings (Task 29, 2026-11-22): gateway lists 311 models incl. `claude-haiku-5.5`, `gpt-6-luna`, `qwen3.7-flash`; balance endpoint works; Inspect `openai-api` sends strict tools by default and the gateway rejects optional params under strict → openai-api routes now use `strict_tools=False` (schemas unchanged); the upstream route is in the response body (`provider`, here `openai`), so no httpx hook is needed; the gateway also returns `usage.cost` per call (0 on the free tier); no count-tokens calls; probe answer stored.
 
 ### Open items / questions for the owner
 
