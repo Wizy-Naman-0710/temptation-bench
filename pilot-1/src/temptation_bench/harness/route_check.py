@@ -1,9 +1,11 @@
 """Route check (spec §6/§7 route-check row, §7.1, §7.2; Task 30): the first paid call.
 
 Two Haiku generates with the same fixed >= 5k-token prefix (local counter) and one tool,
-then one `qwen3.7-flash` generate (the `people` role, openai-api, `strict_tools=False`).
-Each uses the harness settings (`settings.generate_config`: reasoning effort low, no
-temperature, no seed, `cache_prompt="auto"`, `max_retries`) with a small `max_tokens`.
+then one generate of the `people` role model (`routes.PEOPLE_MODEL`, openai-api,
+`strict_tools=False`; the spec named `qwen3.7-flash`, swapped after a gateway 403, PROGRESS
+§8). Each uses the harness settings (`settings.generate_config`: reasoning effort low, no
+temperature, no seed, `cache_prompt="auto"`, `max_retries`) with a small `max_tokens`; the
+people call drops `reasoning_effort` (a non-reasoning model: `routes.route_config`).
 
 - Inspect's local response cache is OFF (`cache=False`): otherwise a re-run would read
   call 2 from disk and prove nothing about provider caching. `--reuse-cache` turns it on
@@ -12,7 +14,7 @@ temperature, no seed, `cache_prompt="auto"`, `max_retries`) with a small `max_to
 - `check_log` reads the written `.eval`: call 2 has `input_tokens_cache_read > 0`, both
   Haiku requests carry `output_config.effort == "low"` (the field Inspect's Anthropic
   provider sets for Claude 5 from `reasoning_effort`: `anthropic.py` `completion_config`,
-  logged as `ModelEvent.call.request`), and qwen returned text. On FAIL the runner exits
+  logged as `ModelEvent.call.request`), and the people model returned text. On FAIL the runner exits
   non-zero with the §7.2 note; it never tries another route.
 
 No text here is agent-facing in a run, but it still holds no banned word."""
@@ -41,13 +43,13 @@ from inspect_ai.tool import ToolInfo, ToolParam, ToolParams
 
 from ..engine.config import load_config
 from .pricing import DEFAULT_PRICING, register_prices
-from .routes import PEOPLE_MODEL, model_args_for
+from .routes import PEOPLE_MODEL, model_args_for, route_config
 from .settings import generate_config
 
 HAIKU = "anthropic/claude-haiku-5-5"
 MIN_PREFIX_TOKENS = 5000  # spec: ">= 5k-token prefix" (local o200k counter)
 HAIKU_MAX_TOKENS = 512  # small, but room for low-effort adaptive thinking plus a sentence
-PEOPLE_MAX_TOKENS = 1024  # qwen may reason first; too small could leave no text
+PEOPLE_MAX_TOKENS = 1024  # one sentence needs far less; the cost is tiny either way
 INPUT_MARGIN = 2  # worst case: provider tokenizers may count up to 2 x the local counter
 REUSE_SCOPE = {"route_check": "fixed-v1"}
 FALLBACK_NOTE = "route fallback needs a fresh owner OK (spec §7.2); no other route was tried"
@@ -134,9 +136,11 @@ def _harness() -> dict[str, Any]:
 def call_config(model: str, max_tokens: int) -> GenerateConfig:
     """The harness config for `model` (effort low, no temperature or seed, cache_prompt,
     max_retries) with a small `max_tokens` and no response-cache policy (see
-    `response_cache`)."""
+    `response_cache`). A non-reasoning route (the people model) gets no `reasoning_effort`."""
     base = generate_config(model, 0, 0, _harness(), people="template", variant="window")
-    return base.model_copy(update={"cache": None, "max_tokens": int(max_tokens)})
+    return route_config(
+        model, base.model_copy(update={"cache": None, "max_tokens": int(max_tokens)})
+    )
 
 
 def response_cache(reuse_cache: bool) -> CachePolicy | bool:
@@ -185,7 +189,7 @@ def worst_case(
     total = (2 * h_call + q_call) * attempts
     how = (
         f"2 Haiku x ({h_in} in x ${_worst_in(h)}/M + {HAIKU_MAX_TOKENS} out x "
-        f"${float(h['output'])}/M) + 1 qwen x ({q_in} in x ${_worst_in(q)}/M + "
+        f"${float(h['output'])}/M) + 1 people x ({q_in} in x ${_worst_in(q)}/M + "
         f"{PEOPLE_MAX_TOKENS} out x ${float(q['output'])}/M), x {attempts} attempts"
     )
     return total, how
@@ -323,7 +327,7 @@ def check_log(log: EvalLog, *, reuse_cache: bool) -> list[Row]:
     else:
         rows.append(Row("local cache: all or none read", False, f"cache={caches}"))
     text = evs[2].output.completion.strip()
-    rows.append(Row("qwen answered (non-empty text)", bool(text), f"{len(text)} chars"))
+    rows.append(Row("people model answered (non-empty text)", bool(text), f"{len(text)} chars"))
     return rows
 
 

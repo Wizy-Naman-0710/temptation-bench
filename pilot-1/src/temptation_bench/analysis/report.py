@@ -126,6 +126,38 @@ def _attempts(batch_dir: Path, runs: list[RunFrame]) -> list[tuple[str, Path]]:
     return out
 
 
+def _error_of(r: RunFrame) -> str | None:
+    return r.meta.get("sample_error") or r.meta.get("error")
+
+
+def _every_failed_attempt(runs: list[RunFrame], replays: list[RunFrame]) -> list[list]:
+    """One row per failed attempt, with its error text (Task 31): every automatic rerun's
+    failed attempt (`retry_on_error`, from the `.eval`), every errored run in n, every
+    labelled run that still carries a sample error, and every errored copy of a cell that
+    has a re-run (in `replays`, so not in n). Nothing is dropped."""
+    rows: list[list] = []
+    for r, in_n in [*((r, True) for r in runs), *((r, False) for r in replays)]:
+        for k, msg in enumerate(r.meta.get("attempt_errors") or [], 1):
+            rows.append([_run_name(r), f"attempt {k}, rerun automatically", msg])
+        err = _error_of(r)
+        if not err:
+            continue
+        if not in_n:
+            kind = "errored attempt; the cell has a re-run (not in n)"
+        elif plots.is_errored(r):
+            kind = "errored sample (in n)"
+        else:
+            kind = "labelled run with a sample error (in n)"
+        rows.append([_run_name(r), kind, err])
+    return rows
+
+
+def _replay_kind(r: RunFrame) -> str:
+    if _error_of(r):
+        return f"errored attempt: {_error_of(r)}"
+    return "cached replay" if _all_cached(r) else "re-run"
+
+
 def _failures(runs: list[RunFrame]) -> tuple[list[RunFrame], list[RunFrame]]:
     """(errored samples, labelled runs that still carry a sample error)."""
     errored = [r for r in runs if plots.is_errored(r)]
@@ -467,6 +499,15 @@ def build_report(
         else ["None."]
     )
     md += ["", "Errored samples stay in n assigned (ITT) and are never dropped.", ""]
+    every = _every_failed_attempt(runs, replays)
+    md += [
+        f"Every failed attempt, with its error text: {len(every)} (automatic reruns, "
+        "errored samples, labelled runs with an error, and errored copies of a cell that "
+        "was re-run)",
+        "",
+    ]
+    md += _table(["run", "attempt", "error"], every) if every else ["None."]
+    md += [""]
     md += [
         f"Labelled runs with a sample error: {len(labelled_err)} (a sealed, labelled JSONL "
         "exists, so the run counts as labelled; the error is listed here)",
@@ -494,7 +535,7 @@ def build_report(
             [
                 [
                     _run_name(r),
-                    "cached replay" if _all_cached(r) else "re-run",
+                    _replay_kind(r),
                     "/".join(Path(str(r.meta.get("duplicate_of"))).parts[-2:]),
                 ]
                 for r in replays

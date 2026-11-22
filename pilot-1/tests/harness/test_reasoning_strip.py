@@ -75,7 +75,7 @@ def test_stored_conversation_is_not_mutated():
 
 
 def test_other_routes_get_the_list_unchanged():
-    for slug in (run.LUNA, "mockllm/model", "openai-api/xpl/qwen3.7-flash"):
+    for slug in (run.LUNA, "mockllm/model", "openai-api/xpl/mistral-small-3.2-24b-instruct"):
         msgs = scripted()
         out = strip_old_reasoning(msgs, slug)
         assert [m.model_dump() for m in out] == [m.model_dump() for m in msgs]

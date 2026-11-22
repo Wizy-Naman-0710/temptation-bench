@@ -8,7 +8,8 @@ def test_all_gateway_models_have_cost():
     assert {
         "anthropic/claude-haiku-5-5",
         "openai-api/xpl/gpt-6-luna",
-        "openai-api/xpl/qwen3.7-flash",
+        "openai-api/xpl/qwen3.7-flash",  # spec people model (kept: older ledger lines)
+        "openai-api/xpl/mistral-small-3.2-24b-instruct",  # people model since Task 31
         "openai-api/xpl/deepseek-v4-flash",
     } <= set(names)
     for n in names:

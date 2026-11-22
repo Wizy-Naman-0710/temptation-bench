@@ -3,7 +3,7 @@
 No test reaches a network. The Haiku calls that must produce a real Anthropic request go
 through Inspect's real `AnthropicAPI` request builder with its SDK client's
 `messages.create` replaced by a local fake (`fake_haiku`), so the logged
-`ModelEvent.call.request` is exactly what Inspect would send. The qwen call is mockllm."""
+`ModelEvent.call.request` is exactly what Inspect would send. The people call is mockllm."""
 
 from __future__ import annotations
 
@@ -125,7 +125,7 @@ def test_response_cache_off_by_default_and_fixed_scope_on_reuse():
 def test_worst_case_fits_the_route_check_cap():
     dollars, how = rc.worst_case()
     assert 0 < dollars <= 0.05
-    assert "Haiku" in how and "qwen" in how and "attempts" in how
+    assert "Haiku" in how and "1 people x" in how and "attempts" in how
 
 
 def test_worst_case_arithmetic_from_pricing():
@@ -166,7 +166,7 @@ def test_check_fails_on_mockllm_no_effort_and_no_cache_read(tmp_path):
     rows = {r.name: r for r in rc.check_log(log, reuse_cache=False)}
     assert not rows["call 2 cache_read > 0"].ok
     assert not rows["call 1 request effort low"].ok
-    assert rows["qwen answered (non-empty text)"].ok
+    assert rows["people model answered (non-empty text)"].ok
     assert not rc.passed(list(rows.values()))
 
 
@@ -216,12 +216,12 @@ def test_check_fails_when_the_request_lost_effort(tmp_path, allow_fake_client):
     assert not rows["call 2 request effort low"].ok
 
 
-def test_check_fails_on_empty_qwen_text(tmp_path, allow_fake_client):
+def test_check_fails_on_empty_people_text(tmp_path, allow_fake_client):
     log = _eval(tmp_path, fake_haiku([]))
     _, _, q = _events(log)
     q.output = ModelOutput.from_content("mockllm/model", "   ")
     rows = {r.name: r for r in rc.check_log(log, reuse_cache=False)}
-    assert not rows["qwen answered (non-empty text)"].ok
+    assert not rows["people model answered (non-empty text)"].ok
 
 
 def test_check_fails_when_a_call_is_missing(tmp_path, allow_fake_client):

@@ -10,11 +10,16 @@ openai-api/xpl/gpt-6-luna:
   output: 0.50
   input_cache_write: 0.0
   input_cache_read: 0.10  # unknown: full input price
-openai-api/xpl/qwen3.7-flash:
+openai-api/xpl/qwen3.7-flash:  # spec people model; gateway 403 (no-training routing)
   input: 0.03
   output: 0.13
   input_cache_write: 0.0
   input_cache_read: 0.006
+openai-api/xpl/mistral-small-3.2-24b-instruct:  # people role since Task 31 (PROGRESS §8)
+  input: 0.094
+  output: 0.25
+  input_cache_write: 0.0
+  input_cache_read: 0.01  # gateway lists cached_input $0.01/M
 openai-api/xpl/deepseek-v4-flash:
   input: 0.14
   output: 0.38

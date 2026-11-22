@@ -1,4 +1,4 @@
-"""Task 29 fix: the openai-api routes (Luna; qwen for the `people` role) send non-strict tools.
+"""Task 29 fix: the openai-api routes (Luna; the `people` role model) send non-strict tools.
 
 Inspect's `openai-api` provider defaults to `strict_tools=True` (`openai_compatible.py:99`)
 and stamps `"strict": true` on every tool (`:566`). Strict mode needs every property in
@@ -73,18 +73,18 @@ def test_runner_anthropic_route_gets_only_the_thinking_override(tmp_path, monkey
 def test_pregen_people_model_has_strict_tools_off(monkeypatch, make_branch):
     """The `people` role arrives as a string Inspect resolves with no args; the pregen
     solver's model seam turns strict tools off."""
-    qwen = get_model(PEOPLE_MODEL, api_key=FAKE, base_url=BASE, memoize=False)
-    assert qwen.api.strict_tools is True  # Inspect's default: the bug
-    monkeypatch.setattr(pregen_people, "get_model", lambda **kw: qwen)
+    people = get_model(PEOPLE_MODEL, api_key=FAKE, base_url=BASE, memoize=False)
+    assert people.api.strict_tools is True  # Inspect's default: the bug
+    monkeypatch.setattr(pregen_people, "get_model", lambda **kw: people)
     model = pregen_people.people_model()
-    assert model is qwen
+    assert model is people
     _assert_all_non_strict(model.api, _tool_infos(make_branch))
 
 
 def test_non_strict_tools_ignores_other_providers():
     haiku = get_model("anthropic/claude-haiku-5-5", api_key=FAKE, base_url=BASE)
     assert non_strict_tools(haiku) is haiku and not hasattr(haiku.api, "strict_tools")
-    assert model_args_for("openai-api/xpl/qwen3.7-flash") == {"strict_tools": False}
+    assert model_args_for(PEOPLE_MODEL) == {"strict_tools": False}
 
 
 def test_every_tool_schema_is_strict_valid_or_strict_is_off(make_branch):

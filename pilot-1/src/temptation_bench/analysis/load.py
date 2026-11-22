@@ -314,6 +314,7 @@ def _build(
             "probe_label": st.get("probe_label"),
             "probe_failed": st.get("probe_failed"),
             "sample_error": sample.error.message if sample.error else None,
+            "attempt_errors": _attempt_errors(sample),
         }
 
     seqs = [e.seq for e in calls]
@@ -408,6 +409,12 @@ def load_run(jsonl_path: Path, eval_path: Path | None = None) -> RunFrame:
     return _build(jsonl_path, Path(eval_path), log.eval.model, match[0])
 
 
+def _attempt_errors(sample: Any) -> list[str]:
+    """The error text of each failed attempt that Inspect's `retry_on_error` reran
+    (`EvalSample.error_retries`, oldest first)."""
+    return [e.message for e in (getattr(sample, "error_retries", None) or [])]
+
+
 def _sample_jsonl(sample: Any, batch_dir: Path) -> Path | None:
     st = _store(sample)
     for p in (st.get("jsonl_path"), st.get("log_path")):
@@ -460,7 +467,9 @@ def _dedupe(runs: list[RunFrame], replays: list[RunFrame] | None) -> list[RunFra
     """One run per assigned cell (model, seed, dose, people, variant, sample id, epoch; X-1).
 
     A re-run of a cell already loaded (e.g. a cache replay of the same sample) is not a
-    second assigned run. Kept: the labelled, freshly generated one (first wins on a tie).
+    second assigned run. Kept: the labelled one without a sample error, then the freshly
+    generated one (first wins on a tie). An errored copy of a cell that has a clean re-run
+    goes to `replays`, where the report lists it with its error text (Task 31).
     The others get `meta["duplicate_of"]` and go to `replays`. Runs with no sample id (bot
     JSONLs) are never merged."""
     groups: dict[tuple, list[RunFrame]] = {}
@@ -471,7 +480,14 @@ def _dedupe(runs: list[RunFrame], replays: list[RunFrame] | None) -> list[RunFra
     for group in groups.values():
         if len(group) < 2:
             continue
-        keep = max(group, key=lambda r: (bool(r.labels), not _all_cached(r)))
+        keep = max(
+            group,
+            key=lambda r: (
+                bool(r.labels),
+                not (r.meta.get("sample_error") or r.meta.get("error")),
+                not _all_cached(r),
+            ),
+        )
         for r in group:
             if r is not keep:
                 r.meta["duplicate_of"] = keep.meta.get("jsonl_path") or keep.meta.get("sample_id")
@@ -517,6 +533,7 @@ def load_batch(batch_dir: Path, *, replays: list[RunFrame] | None = None) -> lis
                             # attempts of a sample with no final JSONL still count (R27-2)
                             "failed_attempts": len(_attempts_of(expected)) if expected else 0,
                             "sample_error": s.error.message if s.error else None,
+                            "attempt_errors": _attempt_errors(s),
                         },
                     )
                 )

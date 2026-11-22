@@ -30,7 +30,7 @@ even if the eval raised, because money may have been spent).
   same seed and dose (DD §13A). The rerun keeps the cell cache, so its replayed turns are
   free. The failed attempt stays in the `.eval` (`error_retries`) and its billed calls are
   in the ledger. The estimate passed in must cover that rerun: it is inside the same cap.
-- `--step route_check` (Task 30): 2 Haiku calls + 1 qwen call (`harness/route_check.py`),
+- `--step route_check` (Task 30): 2 Haiku calls + 1 people-model call (`harness/route_check.py`),
   no automatic rerun, Inspect's local response cache off (`--reuse-cache`: on, one fixed
   scope). Its exposure is its own token worst case from spec prices (`worst_case`), not
   runs x limit x attempts. After `record`, the PASS/FAIL table is printed from the log; a
@@ -39,15 +39,55 @@ even if the eval raised, because money may have been spent).
 - `--estimate-smoke` (Task 30): DD §13.3 arithmetic from `--from-log` and/or `--turns`,
   `--mean-input`, `--mean-output`, `--hit-share` (`estimate.py`). Local only: no guard,
   no network, no ledger line.
+- `--step pregen` (Task 31): one eval of the Task 26 `pregen_people` task for seeds
+  1001-1003 with the people model (`PEOPLE`, both the eval model and the `people` role),
+  writing `configs/people_prose/seed_<n>.json`. It covers the D1-D10 exogenous texts only
+  (planned arrivals' purposes, T1's D8 email, V1's C3 note): enough for window mode. A
+  full_run (D11-D30 arrivals) needs a longer pregen first. No automatic rerun, local
+  response cache off, a small `max_tokens`; exposure = samples x (2 x the longest prompt's
+  local tokens x the highest input price + max_tokens x output price) x (1 + max_retries)
+  (`pregen_people.worst_case`). After `record`, the per-file ok / rejected / missing counts
+  are printed; a missing seed file exits 1. Read every file by hand before committing.
+- `--step mini_batch` (Task 31): Haiku, then Luna, one eval each (X-1), each with its own
+  guard call and ledger line (`runs` = 6, its own cells), logs in
+  `logs/paid/mini_batch-<stamp>/<model>/`. Window, people=prose, doses {0, 3_000_000} x seeds
+  1001-1003, `max_samples=2`. The worst case of all evals to run (12 runs x cost limit x 2
+  attempts) plus what earlier mini_batch lines spent must fit the \\$5.00 cap and the stop
+  line; it is re-checked before Luna with what Haiku spent. An eval that raises stops the
+  step. `--model <slug>` runs just one of the two. Each line's `estimate` is the step
+  estimate's share by runs. people=prose refuses (no network) until the pregen files exist.
+
+Runbook: rerunning a deterministic harness error (Task 31; nothing new built for it).
+- What exists: `retry_on_error=1` (one automatic same-seed rerun inside the eval) and the
+  per-cell output cache (`settings.cell_scope`). A rerun of a cell replays its cached
+  outputs, so a harness error that is deterministic given those outputs fails again, at
+  \\$0 for the replayed turns.
+- Fix the harness first (a mockllm test that reproduces it), then rerun the same step
+  through this runner, for mini_batch with `--model <slug>` for the affected model only.
+  The replayed turns before the failure point are free; once the fixed harness changes an
+  input, the cache misses and the rest is fresh (paid). Completed cells of that eval
+  replay fully cached, also \\$0. The report keeps one run per cell: labelled, without a
+  sample error, fresh before cached; the errored copy is listed with its error text.
+- If the cached outputs themselves must be dropped (the failure is in what the model
+  said), the existing ways are: (a) `cell_scope(..., retry=k)` gives `...|retry<k>`, but it
+  is not wired to any task or CLI parameter (`harness/agent.py` never passes `retry`), so
+  using it needs a controller-approved code change; (b) a fresh, empty `INSPECT_CACHE_DIR`
+  for the rerun process (Inspect `model/_cache.py` `_cache_root`), which makes every cell
+  of that eval a fresh paid run: re-estimate first.
+- Inspect's `eval_retry` / `inspect eval-retry <log>` exists (`_eval/eval.py`) and reruns
+  only the failed samples of a log, but it bypasses this runner (no `budget.guard`, no
+  ledger line), so it must not be used for a paid rerun. It also keeps the same cell
+  scope, so it would replay into the same deterministic error.
 - The eval process itself loads `.env` (Inspect does this). Nothing here exports it."""
 
 from __future__ import annotations
 
 import argparse
+import json
 import math
 import sys
 from collections.abc import Callable, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -77,6 +117,10 @@ def _count(csv: str) -> int:
     return len([x for x in csv.split(",") if x.strip()])
 
 
+def _ints(csv: str) -> list[int]:
+    return [int(x) for x in csv.replace(" ", "").split(",") if x]
+
+
 @dataclass(frozen=True)
 class Plan:
     models: tuple[str, ...]
@@ -88,7 +132,9 @@ class Plan:
     free_tier_tokens: int | None = None  # set: a free-tier step, bounded in tokens (R25-2)
     retry_on_error: int = RETRY_ON_ERROR  # automatic same-seed reruns of an errored sample
     token_limit: int | None = None  # the step's default token limit (`--token-limit` wins)
-    aux_models: tuple[str, ...] = ()  # other models the step calls (route check: qwen)
+    aux_models: tuple[str, ...] = ()  # other models the step calls (route check: people)
+    samples: int | None = None  # set: the eval's sample count (pregen: one per text)
+    uses_token_limit: bool = True  # False: the step's task takes no token limit (pregen)
 
     @property
     def attempts(self) -> int:
@@ -97,6 +143,8 @@ class Plan:
 
     @property
     def runs(self) -> int:
+        if self.samples is not None:
+            return len(self.models) * self.samples
         return len(self.models) * _count(self.seeds) * _count(self.doses)
 
 
@@ -124,6 +172,7 @@ class Step:
     not_built: str = ""  # why the step refuses; empty when built
     exposure: Exposure | None = None  # a step's own worst case (else runs x limit x attempts)
     verify: Verify | None = None  # a check on the written log, after `record`
+    split_models: bool = False  # one eval per plan model, in turn, each recorded (mini_batch)
 
     @property
     def built(self) -> bool:
@@ -219,11 +268,87 @@ def verify_route_check(ctx: Ctx, paths: list[Path]) -> None:
         raise CheckFailed(f"route check FAILED ({failed}); {rc.FALLBACK_NOTE}")
 
 
+def launch_pregen(ctx: Ctx) -> None:
+    """The people pregen (Task 26 task, Task 31 launch): one `inspect_ai.eval` of
+    `pregen_people` for the plan's seeds. The people model is both the eval's model (never
+    called by the solver) and the `people` role. No automatic rerun: a sample that fails
+    leaves its key out, so the engine uses the template and logs `people_fallback`."""
+    from .harness.pregen_people import pregen_people
+    from .harness.routes import model_args_for
+
+    p = ctx.plan
+    model = one_model(p, ctx.model)
+    kw: dict[str, Any] = {}
+    if ctx.display is not None:
+        kw["display"] = ctx.display
+    inspect_eval(
+        pregen_people(seeds=p.seeds),
+        model=model,
+        model_roles={"people": model},
+        model_args=model_args_for(str(model)) if isinstance(model, str) else {},
+        log_dir=str(ctx.log_dir),
+        max_samples=p.max_samples,
+        retry_on_error=p.retry_on_error,
+        cost_limit=ctx.sample_cost_limit,
+        **kw,
+    )
+
+
+def pregen_exposure() -> tuple[float, str]:
+    from .harness import pregen_people as pg
+
+    plan = STEPS["pregen"].plan
+    assert plan is not None
+    return pg.worst_case(plan.seeds, plan.models[0])
+
+
+def verify_pregen(ctx: Ctx, paths: list[Path]) -> None:
+    """Print, per seed file, how many texts are ok / rejected / missing (the template is
+    used for the last two). A missing seed file raises `CheckFailed` (a prose run would
+    refuse it). Read every file by hand before committing it (spec §5)."""
+    from .engine.config import load_config, people_prose_dir
+    from .engine.people import entry_key, prose_jobs, prose_path
+    from .harness.pregen_people import PREGEN_DAYS
+
+    cfg = load_config("window")
+    missing_files = []
+    for seed in _ints(ctx.plan.seeds):
+        path = prose_path(seed, people_prose_dir())
+        want = {entry_key(j.person, j.msg_key) for j in prose_jobs(cfg, seed, PREGEN_DAYS)}
+        if not path.exists():
+            missing_files.append(path.name)
+            print(f"pregen: {path.name}: MISSING ({len(want)} texts expected)")
+            continue
+        texts = json.loads(path.read_text()).get("texts", {})
+        ok = sum(1 for k in want if texts.get(k, {}).get("ok") is True)
+        rejected = sum(1 for k in want if k in texts and texts[k].get("ok") is not True)
+        print(
+            f"pregen: {path.name}: {len(want)} texts, {ok} ok, {rejected} rejected, "
+            f"{len(want - set(texts))} missing (template used for rejected and missing); "
+            f"{path}"
+        )
+    if missing_files:
+        raise CheckFailed(f"pregen wrote no file for {', '.join(missing_files)}")
+
+
 HAIKU = "anthropic/claude-haiku-5-5"
-PEOPLE = "openai-api/xpl/qwen3.7-flash"  # spec D4: the people role (harness/routes.py)
+# the people role (harness/routes.py PEOPLE_MODEL; spec D4 named qwen3.7-flash, swapped
+# after the gateway 403, PROGRESS §8)
+PEOPLE = "openai-api/xpl/mistral-small-3.2-24b-instruct"
 FREE_TIER = 1_000_000  # Luna free tier: 1M tokens/day (spec §6 G-free)
 GFREE_TOKEN_LIMIT = 800_000  # spec §6 G-free
 LUNA = "openai-api/xpl/gpt-6-luna"
+
+
+def _pregen_samples(seeds: str) -> int:
+    """One pregen sample per (seed, person, msg_key) of the D1-D10 exogenous texts."""
+    from .engine.config import load_config
+    from .engine.people import prose_jobs
+    from .harness.pregen_people import PREGEN_DAYS
+
+    cfg = load_config("window")
+    return sum(len(prose_jobs(cfg, seed, PREGEN_DAYS)) for seed in _ints(seeds))
+
 
 # The dispatch table. Later tasks fill in the refusing entries (plan Tasks 26, 29-31, 34).
 STEPS: dict[str, Step] = {
@@ -241,7 +366,7 @@ STEPS: dict[str, Step] = {
         ),
         launch_task_eval,
     ),
-    # Task 30: 2 Haiku calls (same >= 5k-token prefix, one tool) + 1 qwen call; no rerun
+    # Task 30: 2 Haiku calls (same >= 5k-token prefix, one tool) + 1 people call; no rerun
     "route_check": Step(
         Plan((HAIKU,), "route_check", "-", "-", "-", retry_on_error=0, aux_models=(PEOPLE,)),
         launch_route_check,
@@ -250,9 +375,28 @@ STEPS: dict[str, Step] = {
     ),
     # Task 30: Haiku, decision window, seed 1001, dose $30k
     "smoke": Step(Plan((HAIKU,), "window", "1001", "3000000", max_samples=1), launch_task_eval),
-    "pregen": Step(None, None, "pregen_people exists (Task 26); the runner launch is Task 31"),
+    # Task 31: the people model rewrites the D1-D10 exogenous texts of seeds 1001-1003
+    "pregen": Step(
+        Plan(
+            (PEOPLE,),
+            "pregen",
+            "1001,1002,1003",
+            "-",
+            "-",
+            max_samples=2,
+            retry_on_error=0,
+            samples=_pregen_samples("1001,1002,1003"),
+            uses_token_limit=False,
+        ),
+        launch_pregen,
+        exposure=pregen_exposure,
+        verify=verify_pregen,
+    ),
+    # Task 31: Haiku, then Luna (one eval each, X-1) x doses {0, $30k} x seeds 1001-1003
     "mini_batch": Step(
-        None, None, "needs people=prose (Task 26) and the smoke-based estimate (Task 31)"
+        Plan((HAIKU, LUNA), "window", "1001,1002,1003", "0,3000000", "prose", max_samples=2),
+        launch_task_eval,
+        split_models=True,
     ),
     "full_run": Step(None, None, "needs the D11-D30 events and audit (Tasks 32-33)"),
 }
@@ -305,15 +449,28 @@ def exposure(plan: Plan, sample_cost_limit: float | None) -> float | None:
     return plan.runs * sample_cost_limit * plan.attempts
 
 
+def step_spent(step: str, ledger_path: Path | None = None) -> float:
+    """Σ `actual` of the ledger lines of `step` (its earlier evals count against its cap)."""
+    return float(
+        sum(
+            e["actual"]
+            for e in budget.ledger_entries(ledger_path=ledger_path)
+            if e.get("step") == step
+        )
+    )
+
+
 def check_exposure(
     step: str,
     plan: Plan,
     sample_cost_limit: float | None,
     token_limit: int | None,
     spent: float,
+    prior: float = 0.0,
 ) -> str:
     """Refuse (BudgetError) a worst case the step cap or the stop line cannot hold (R25-2).
-    Returns the exposure line for the printed plan."""
+    `prior` = what earlier evals of this step already spent (`step_spent`; mini_batch and
+    full_run): it counts against the step cap too. Returns the exposure line."""
     if plan.free_tier_tokens is not None:  # G-free: $0 only while inside the free tier
         free = plan.free_tier_tokens
         if token_limit is None:
@@ -349,6 +506,11 @@ def check_exposure(
         raise BudgetError(
             f"{step} worst-case exposure ${e:.4f} ({how}) is over the {step} cap ${cap:.2f}; "
             "lower --sample-cost-limit"
+        )
+    if prior + e > cap:
+        raise BudgetError(
+            f"{step} already spent ${prior:.4f} + worst-case exposure ${e:.4f} ({how}) is over "
+            f"the {step} cap ${cap:.2f} (needs owner OK)"
         )
     if spent + e > STOP_LINE:
         raise BudgetError(
@@ -387,14 +549,31 @@ def _plan_text(
     p = ctx.plan
     models = [str(one_model(p, ctx.model)), *(f"{m} (people)" for m in p.aux_models)]
     token = f"{ctx.token_limit} ({token_source})" if ctx.token_limit is not None else "none"
+    if p.samples is not None:  # pregen: the people model is the eval's only model
+        models = [f"{m} (people)" for m in p.models]
+        cells = [
+            f"samples:           {p.runs} (D1-D10 exogenous texts of seeds {p.seeds}; "
+            "window mode only)",
+        ]
+    else:
+        cells = [
+            f"variant:           {p.variant} (people={p.people})",
+            f"seeds x doses:     {p.seeds} x {p.doses} = {p.runs} cells",
+            f"runs:              {p.runs}",
+        ]
+    if not p.uses_token_limit:
+        token = "none (not used by this step)"
     lines = [
         f"step:              {step}",
         f"models:            {', '.join(models)}",
-        f"variant:           {p.variant} (people={p.people})",
-        f"seeds x doses:     {p.seeds} x {p.doses} = {p.runs} cells",
-        f"runs:              {p.runs}",
+        *cells,
         f"max_samples:       {p.max_samples}",
-        f"retry_on_error:    {p.retry_on_error} (same seed and dose; failure kept in the log)",
+        f"retry_on_error:    {p.retry_on_error} "
+        + (
+            "(same seed and dose; failure kept in the log)"
+            if p.retry_on_error
+            else "(no automatic rerun)"
+        ),
         f"sample cost_limit: ${ctx.sample_cost_limit:.4f}",
         f"token_limit:       {token}",
         f"exposure:          {exposure_line}",
@@ -408,7 +587,32 @@ def _plan_text(
 
         scope = ", ".join(f"{k}={v}" for k, v in sorted(REUSE_SCOPE.items()))
         lines.append(f"local cache:       {f'on (scope {scope})' if ctx.reuse_cache else 'off'}")
+    if step == "pregen":
+        from .engine.config import people_prose_dir
+
+        lines.append("local cache:       off (every call asks the model)")
+        lines.append(f"writes:            {people_prose_dir()}/seed_<n>.json")
     return "\n".join(lines)
+
+
+def check_prose(plan: Plan) -> None:
+    """A `people=prose` plan needs every seed's pregen file (local; before any network)."""
+    if plan.people != "prose":
+        return
+    from .engine.people import make_people
+
+    for seed in _ints(plan.seeds):
+        try:
+            make_people("prose", seed)
+        except (OSError, ValueError) as e:
+            raise RunnerError(
+                f"people=prose needs the pregen file for seed {seed}; run --step pregen "
+                f"first ({type(e).__name__}: {e})"
+            ) from None
+
+
+def _model_tag(model: str) -> str:
+    return str(model).rsplit("/", 1)[-1]
 
 
 def run_step(
@@ -419,6 +623,7 @@ def run_step(
     sample_cost_limit: float | None = None,
     dry_run: bool = False,
     model: Model | None = None,
+    select_model: str | None = None,
     log_root: Path | None = None,
     env_path: Path | None = None,
     ledger_path: Path | None = None,
@@ -426,8 +631,15 @@ def run_step(
     display: str | None = None,
     reuse_cache: bool = False,
 ) -> dict[str, Any] | None:
-    """Check, launch, record, then the step's own check (route check). Returns the ledger
-    line (None for a dry run)."""
+    """Check, launch, record, then the step's own check (route check, pregen). Returns the
+    (last) ledger line (None for a dry run).
+
+    A `split_models` step (mini_batch) runs one eval per plan model, in turn (X-1), each with
+    its own guard call and ledger line (`runs` = that eval's cells). `select_model` (CLI
+    `--model`) runs only that model's eval. The worst case of every eval to run is checked
+    up front, and again (with the money spent so far) before each later eval; an eval that
+    raises stops the step. Each ledger line's `estimate` is the step estimate's share by
+    runs. `model` (tests) replaces the model of every eval."""
     spec = STEPS.get(step)
     if spec is None:
         raise RunnerError(f"unknown step {step!r}")
@@ -436,57 +648,126 @@ def run_step(
     if reuse_cache and step != "route_check":
         raise RunnerError("--reuse-cache runs only with --step route_check")
     assert spec.plan is not None and spec.launch is not None
-    one_model(spec.plan, model)  # X-1: refuse before any network call or ledger line
+    plan = spec.plan
+    if select_model is not None:
+        if not spec.split_models:
+            raise RunnerError(
+                f"--model works only with a step that runs one eval per model, not {step}"
+            )
+        if select_model not in plan.models:
+            raise RunnerError(f"{select_model} is not a model of {step} ({', '.join(plan.models)})")
+        plan = replace(plan, models=(select_model,))
+    evals = [replace(plan, models=(m,)) for m in plan.models] if spec.split_models else [plan]
+    for p in evals:
+        one_model(p, model)  # X-1: refuse before any network call or ledger line
+    check_prose(plan)
     if sample_cost_limit is None:
         sample_cost_limit = default_sample_cost_limit(step, ledger_path)
     if not (math.isfinite(sample_cost_limit) and sample_cost_limit > 0):
         raise RunnerError("the sample cost limit must be a finite number > 0")
     if token_limit is not None and token_limit <= 0:
         raise RunnerError("the token limit must be > 0")
+    if token_limit is not None and not plan.uses_token_limit:
+        raise RunnerError(f"--token-limit is not used by step {step}")
     token_source = "--token-limit"
-    if token_limit is None and spec.plan.token_limit is not None:
-        token_limit = spec.plan.token_limit
+    if not plan.uses_token_limit:
+        token_limit = None
+    elif token_limit is None and plan.token_limit is not None:
+        token_limit = plan.token_limit
         token_source = "step default"
     elif token_limit is None:
         token_limit = default_token_limit(ledger_path)
         token_source = "2 x smoke mean"
-    spent = budget.spent(ledger_path=ledger_path)  # local; refuses on a missing/bad ledger
-    if spec.exposure is not None:
-        exposure_line = check_dollar_exposure(step, *spec.exposure(), spent)
-    else:
-        exposure_line = check_exposure(step, spec.plan, sample_cost_limit, token_limit, spent)
+    total_runs = sum(p.runs for p in evals)
 
+    def check(todo: Plan) -> str:  # local: the step cap and the stop line (R25-2)
+        spent = budget.spent(ledger_path=ledger_path)  # refuses on a missing/bad ledger
+        if spec.exposure is not None:
+            return check_dollar_exposure(step, *spec.exposure(), spent)
+        prior = step_spent(step, ledger_path) if step in NEEDS_SMOKE else 0.0
+        return check_exposure(step, todo, sample_cost_limit, token_limit, spent, prior)
+
+    exposure_line = check(plan)
     balance = budget.guard(
         step, estimate, env_path=env_path, ledger_path=ledger_path, transport=transport
     )
     stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
-    ctx = Ctx(
-        step=step,
-        plan=spec.plan,
-        log_dir=Path(log_root or LOG_ROOT) / f"{step}-{stamp}",
-        sample_cost_limit=float(sample_cost_limit),
-        token_limit=token_limit,
-        model=model,
-        display=display,
-        reuse_cache=reuse_cache,
-    )
-    print(
-        ("DRY RUN (no eval launched)\n" if dry_run else "")
-        + _plan_text(
+    step_dir = Path(log_root or LOG_ROOT) / f"{step}-{stamp}"
+
+    def ctx_for(p: Plan) -> Ctx:
+        tag = _model_tag(p.models[0]) if spec.split_models else ""  # the plan's model
+        return Ctx(
+            step=step,
+            plan=p,
+            log_dir=step_dir / tag if tag else step_dir,
+            sample_cost_limit=float(sample_cost_limit),
+            token_limit=token_limit,
+            model=model,
+            display=display,
+            reuse_cache=reuse_cache,
+        )
+
+    def text(p: Plan, line: str) -> str:
+        return _plan_text(
             step,
-            ctx,
-            estimate,
+            ctx_for(p),
+            estimate * p.runs / total_runs,
             budget.spent(ledger_path=ledger_path),
             balance,
-            exposure_line,
+            line,
             token_source,
         )
-    )
-    if dry_run:
-        return None
 
-    models = [str(one_model(spec.plan, model)), *spec.plan.aux_models]
-    runs = spec.plan.runs
+    head = "DRY RUN (no eval launched)\n" if dry_run else ""
+    if spec.split_models:
+        print(
+            f"{head}step {step}: {len(evals)} evals, one per model, in turn\n"
+            f"exposure:          {exposure_line}\n"
+            f"estimate / cap:    ${estimate:.4f} / ${STEP_CAPS[step]:.2f}"
+        )
+        head = ""
+    entry: dict[str, Any] | None = None
+    for i, p in enumerate(evals):
+        line = exposure_line
+        if spec.split_models:
+            if i > 0:  # re-check the rest with what the earlier evals spent
+                rest = replace(plan, models=tuple(q.models[0] for q in evals[i:]))
+                check(rest)
+                left = estimate * rest.runs / total_runs
+                balance = budget.guard(
+                    step, left, env_path=env_path, ledger_path=ledger_path, transport=transport
+                )
+            line = check_exposure(step, p, sample_cost_limit, token_limit, 0.0)
+            print(f"\neval {i + 1} of {len(evals)}: {one_model(p, model)}")
+        print(head + text(p, line))
+        if dry_run:
+            continue
+        entry = _launch_and_record(
+            spec,
+            ctx_for(p),
+            estimate * p.runs / total_runs,
+            balance,
+            env_path=env_path,
+            ledger_path=ledger_path,
+            transport=transport,
+        )
+    return entry
+
+
+def _launch_and_record(
+    spec: Step,
+    ctx: Ctx,
+    estimate: float,
+    balance: float,
+    *,
+    env_path: Path | None,
+    ledger_path: Path | None,
+    transport: httpx.BaseTransport | None,
+) -> dict[str, Any]:
+    """One eval: launch, `record` (always, even if the eval raised), then the step's check."""
+    assert spec.launch is not None
+    step, p = ctx.step, ctx.plan
+    models = [str(one_model(p, ctx.model)), *p.aux_models]
     error: str | None = None
     try:
         spec.launch(ctx)
@@ -498,7 +779,7 @@ def run_step(
         entry = budget.record(
             step,
             models,
-            runs,
+            p.runs,
             estimate,
             paths,
             balance_before=balance,
@@ -508,7 +789,8 @@ def run_step(
             transport=transport,
         )
         print(
-            f"recorded: {step} actual ${entry['actual']:.4f} ({entry['actual_source']}); "
+            f"recorded: {step} {models[0]} actual ${entry['actual']:.4f} "
+            f"({entry['actual_source']}); "
             f"spent ${budget.spent(ledger_path=ledger_path):.4f} of ${STOP_LINE:.2f}"
         )
     if spec.verify is not None:
@@ -600,6 +882,11 @@ def main(
     ap.add_argument("--sample-cost-limit", type=float, default=None)
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument(
+        "--model",
+        default=None,
+        help="mini_batch only: run just this model's eval (default: every model, in turn)",
+    )
+    ap.add_argument(
         "--list-models",
         action="store_true",
         help="route_check only: print the gateway's model ids (free metadata call) and exit",
@@ -633,6 +920,7 @@ def main(
             sample_cost_limit=args.sample_cost_limit,
             dry_run=args.dry_run,
             model=model,
+            select_model=args.model,
             log_root=log_root,
             env_path=env_path,
             ledger_path=ledger_path,

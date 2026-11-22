@@ -2,7 +2,7 @@
 
 Same safety as `test_budget.py`: a tmp `.env` with fake values, `httpx.MockTransport` for
 the balance, module defaults pointed at missing files, Haiku through a local fake SDK
-client (`fake_haiku`), qwen replaced by mockllm."""
+client (`fake_haiku`), the people model replaced by mockllm."""
 
 from __future__ import annotations
 
@@ -27,7 +27,7 @@ REAL_ROUTE_CHECK = run.STEPS["route_check"]  # before the fixture below swaps th
 def no_real_defaults(tmp_path, monkeypatch):
     monkeypatch.setattr(budget, "ENV_PATH", tmp_path / "missing" / ".env")
     monkeypatch.setattr(budget, "LEDGER_PATH", tmp_path / "missing" / "ledger.jsonl")
-    # never the real qwen route: the people call goes to mockllm
+    # never the real people route: the people call goes to mockllm
     spec = run.STEPS["route_check"]
     mock_plan = dataclasses.replace(spec.plan, aux_models=("mockllm/model",))
     monkeypatch.setitem(run.STEPS, "route_check", dataclasses.replace(spec, plan=mock_plan))
@@ -74,7 +74,11 @@ def test_route_check_is_built_with_one_attempt():
     spec = REAL_ROUTE_CHECK
     assert spec.built
     assert spec.plan.models == (run.HAIKU,) and spec.plan.attempts == 1
-    assert spec.plan.aux_models == (rc.PEOPLE_MODEL,) == ("openai-api/xpl/qwen3.7-flash",)
+    assert (
+        spec.plan.aux_models
+        == (rc.PEOPLE_MODEL,)
+        == ("openai-api/xpl/mistral-small-3.2-24b-instruct",)
+    )  # spec named qwen3.7-flash (PROGRESS §8)
 
 
 def test_route_check_runs_records_and_passes(
