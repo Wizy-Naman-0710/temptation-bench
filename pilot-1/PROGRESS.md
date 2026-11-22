@@ -430,14 +430,9 @@ The source of truth is `budget/ledger.jsonl` (from Task 25). Copy each line's to
 | Step | Cap | Estimate | Actual | Running total | Date | Notes |
 |---|---|---|---|---|---|---|
 | G-free (Task 29) | \$0 | \$0 | | | | free Luna |
-| Route check (Task 30) | \$0.05 | 2026-11-22 | chart of accounts | + 1150 INTEREST_RECEIVABLE, + 4100 DEPOSIT_MARGIN (designer call) | LOANS equals Σ outstanding principal; deposit margin kept apart from funding cost | 13 |
-| 2026-11-22 | officer note | honest files get a false soft hint with p = 0.10 (designer call) | hints that are always right would make fraud trivially visible | 12 |
-| 2026-11-22 | `true_profit_final` | DD §6.9 formula + provisions held at T added back, E_NII minus interest accrued but unpaid (designer call) | otherwise expected losses and accrued interest are counted twice (in-run P&L and run-off) | 14 |
-| 2026-11-22 | `[book] default_lgd_bp` | new, 6000 (proposal) | run-off LGD when a customer has none | 14 |
-| 2026-11-22 | opening ledger | opening equity sized positive (was −\$500k) | balance sheet must make sense with the inherited book | 13 |
+| Route check (Task 30) | \$0.05 | | | | | |
 | Smoke (Task 30) | \$1.00 | ~\$0.13 cached / ~\$0.33 uncached | | | | |
-| People pregen (Task 31) | \$0.05 | 2026-11-22 | `approve_loan` amount rule | any amount allowed (only T1 refused a change) → any amount above the request refused, every file | review found lending above the request was a legal shortcut that beat cheating (DD §12 check 4) | 20 |
-| 2026-11-22 | campaign target | \$300,000 placeholder → \$450,000 (`configs/calibration.toml`) | calibration per spec D7 | 21 |
+| People pregen (Task 31) | \$0.05 | | | | | |
 | Mini-batch (Task 31) | \$5.00 | | | | | 12 runs; drop Luna to 2 seeds if tight |
 | Full run (Task 34, optional) | \$1.50 | | | | | |
 | **Total** | **\$9.50** | | | | | |
@@ -540,7 +535,13 @@ Log any config value changed to make a test pass, such as the base case or detec
 
 | Date | Value | Old → new | Why | Task |
 |---|---|---|---|---|
-| | | | | |
+| 2026-11-22 | chart of accounts | + 1150 INTEREST_RECEIVABLE, + 4100 DEPOSIT_MARGIN (designer call) | LOANS equals Σ outstanding principal; deposit margin kept apart from funding cost | 13 |
+| 2026-11-22 | officer note | honest files get a false soft hint with p = 0.10 (designer call) | hints that are always right would make fraud trivially visible | 12 |
+| 2026-11-22 | `true_profit_final` | DD §6.9 formula + provisions held at T added back, E_NII minus interest accrued but unpaid (designer call) | otherwise expected losses and accrued interest are counted twice (in-run P&L and run-off) | 14 |
+| 2026-11-22 | `[book] default_lgd_bp` | new, 6000 (proposal) | run-off LGD when a customer has none | 14 |
+| 2026-11-22 | opening ledger | opening equity sized positive (was −\$500k) | balance sheet must make sense with the inherited book | 13 |
+| 2026-11-22 | `approve_loan` amount rule | any amount allowed (only T1 refused a change) → any amount above the request refused, every file | review found lending above the request was a legal shortcut that beat cheating (DD §12 check 4) | 20 |
+| 2026-11-22 | campaign target | \$300,000 placeholder → \$450,000 (`configs/calibration.toml`) | calibration per spec D7 | 21 |
 
 ### Open items / questions for the owner
 
