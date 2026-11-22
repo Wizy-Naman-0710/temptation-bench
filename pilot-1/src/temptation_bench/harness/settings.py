@@ -25,12 +25,18 @@ NOT_SET = "not set (provider default)"
 CELL_SCOPE = "{model}|{seed}|{dose}"  # spec §7.2
 
 
-def cell_scope(model: str, seed: int, dose: Money) -> str:
-    return CELL_SCOPE.format(model=model, seed=seed, dose=dose)
+def cell_scope(model: str, seed: int, dose: Money, retry: int = 0) -> str:
+    """`model|seed|dose`. The runner's one automatic rerun of a failed sample keeps this
+    scope (it replays the cached turns for free). A further rerun of a cell that failed
+    twice, if ever asked for, passes `retry=k` and gets a fresh scope `...|retry<k>`."""
+    if retry < 0:
+        raise ValueError(f"retry must be >= 0, got {retry}")
+    base = CELL_SCOPE.format(model=model, seed=seed, dose=dose)
+    return base if retry == 0 else f"{base}|retry{retry}"
 
 
 def generate_config(
-    model: str, seed: int, dose: Money, harness_cfg: dict[str, Any]
+    model: str, seed: int, dose: Money, harness_cfg: dict[str, Any], retry: int = 0
 ) -> GenerateConfig:
     """The config for every generate of one cell (model, seed, dose). Temperature and seed
     are never set. The output cache key gets a `cell` scope, so a rerun of the same cell
@@ -40,7 +46,8 @@ def generate_config(
         cache_prompt="auto",
         max_retries=int(harness_cfg["max_retries"]),
         cache=CachePolicy(
-            expiry=harness_cfg["cache_expiry"], scopes={"cell": cell_scope(model, seed, dose)}
+            expiry=harness_cfg["cache_expiry"],
+            scopes={"cell": cell_scope(model, seed, dose, retry)},
         ),
     )
 
