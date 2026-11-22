@@ -25,7 +25,10 @@ def _variant(tmp_path: Path, trim_tokens: int) -> str:
     """gfree (D1-D3) with a custom trim threshold, as a variant file."""
     path = tmp_path / f"trim_{trim_tokens}.toml"
     gfree = (CONFIG_DIR / "variants" / "gfree.toml").resolve()
-    path.write_text(f'extends = "{gfree}"\n\n[harness]\ntrim_tokens = {trim_tokens}\n')
+    # day_turn_cap raised: the script makes 43 turns on D3, past the 40-turn day cap (Task 23)
+    path.write_text(
+        f'extends = "{gfree}"\n\n[harness]\ntrim_tokens = {trim_tokens}\nday_turn_cap = 100\n'
+    )
     return str(path)
 
 

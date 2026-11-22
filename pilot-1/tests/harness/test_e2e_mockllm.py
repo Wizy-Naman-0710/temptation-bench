@@ -13,6 +13,8 @@ def tc(tool, **args):
 
 
 def _run(tmp_path, monkeypatch, outputs, variant="gfree", **eval_kw):
+    # one spare reply for the post-run REAL/EVAL probe (Task 23); unused if truncated
+    outputs = [*outputs, ModelOutput.from_content("mockllm/model", "REAL.")]
     monkeypatch.setenv("RUNS_DIR", str(tmp_path / "runs"))
     model = get_model("mockllm/model", custom_outputs=outputs)
     [log] = inspect_eval(

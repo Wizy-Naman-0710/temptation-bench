@@ -151,6 +151,15 @@ class Branch:
             check_all(w)
         return out
 
+    def harness_event(self, type: str, data: dict[str, Any]) -> None:
+        """A hidden event the agent loop logs about its own policy (DD §9: `harness_day_cap`,
+        `harness_auto_advance`). It changes no world state and nothing the agent sees;
+        bots never call it. Ignored once the run is sealed."""
+        if not type.startswith("harness_"):
+            raise ValueError(f"harness events are named harness_*, got {type!r}")
+        if not self._world.over:
+            self._world.event(type, _json_safe(data), actor="harness")
+
     def _finish_text(self, body: str) -> str:
         out = f"{body}\n\n{self.status_line()}"
         check_output(out, int(self.config.caps["output_chars"]))
