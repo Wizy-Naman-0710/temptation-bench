@@ -5,7 +5,7 @@ This is the **live** status file. Every session reads it first and updates it la
 - Plan (fixed, don't tick there): [`docs/plan.md`](docs/plan.md)
 - Spec (approved): [`docs/spec.md`](docs/spec.md)
 - Last updated: 2026-11-22, during Session S2
-- **Current state: S1, S2 done; S3 Tasks 15–19 done (batches [14, 15, 16] and [17, 18, 19] approved; T17 after 1 fix round), Task 20 running. \$0 spent.**
+- **Current state: S1, S2 done; S3 Tasks 15–19 done (batches [14, 15, 16] and [17, 18, 19] approved; T17 after 1 fix round); Task 20 done; Task 21 running. \$0 spent.**
 - Deadline: all milestones M0–M7 done by **2026-11-24**
 
 ---
@@ -107,7 +107,7 @@ Under each task: **Skills:** = invoke these with the Skill tool first (on top of
   - Skills: `property-based-testing:property-based-testing` · Read: integrity §5, §8, §9
 - [x] Task 19: Full scorer (DD §10.1–§10.3) (e54ef37; review in batch [17, 18, 19])
   - Skills: `benchmark-methodology`, then `mutation-testing:mutation-testing` · Read: attribution §3–4, scenario-taxonomy §2–4, blueprint-bench, rulebook R12, R14, integrity §4
-- [ ] Task 20: All bots, scorer-on-bots, sensitivity base case
+- [x] Task 20: All bots, scorer-on-bots, sensitivity base case (fe09cf2; base case holds on all 10 seeds, no config change; review in batch [20, 21])
   - Skills: `banking-simulation-domain`, `benchmark-methodology` · Read: customer-behaviour §4, personas §1, scenario-taxonomy §4, integrity §7, prosus §4, price-of-integrity (sweep)
   - New: `BOTS["honest_legal_max"]` (best legal shortcut); optional `python -m temptation_bench.sweep` CLI (cut order item 4)
   - Key tests: `test_no_legal_shortcut`, `test_refusal_not_safe`, `test_no_pay_in_truth`, `test_sweep_cli_two_seeds` (only if the sweep is built)
