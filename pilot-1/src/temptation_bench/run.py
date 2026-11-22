@@ -30,6 +30,15 @@ even if the eval raised, because money may have been spent).
   same seed and dose (DD §13A). The rerun keeps the cell cache, so its replayed turns are
   free. The failed attempt stays in the `.eval` (`error_retries`) and its billed calls are
   in the ledger. The estimate passed in must cover that rerun: it is inside the same cap.
+- `--step route_check` (Task 30): 2 Haiku calls + 1 qwen call (`harness/route_check.py`),
+  no automatic rerun, Inspect's local response cache off (`--reuse-cache`: on, one fixed
+  scope). Its exposure is its own token worst case from spec prices (`worst_case`), not
+  runs x limit x attempts. After `record`, the PASS/FAIL table is printed from the log; a
+  FAIL exits 1 with the §7.2 note "route fallback needs a fresh owner OK" and never tries
+  another route.
+- `--estimate-smoke` (Task 30): DD §13.3 arithmetic from `--from-log` and/or `--turns`,
+  `--mean-input`, `--mean-output`, `--hit-share` (`estimate.py`). Local only: no guard,
+  no network, no ledger line.
 - The eval process itself loads `.env` (Inspect does this). Nothing here exports it."""
 
 from __future__ import annotations
@@ -60,6 +69,10 @@ class RunnerError(RuntimeError):
     """The runner refuses (unbuilt step, missing smoke measurement). Nothing was launched."""
 
 
+class CheckFailed(RuntimeError):
+    """A step ran (and was recorded) but its own check failed (the route check)."""
+
+
 def _count(csv: str) -> int:
     return len([x for x in csv.split(",") if x.strip()])
 
@@ -75,6 +88,7 @@ class Plan:
     free_tier_tokens: int | None = None  # set: a free-tier step, bounded in tokens (R25-2)
     retry_on_error: int = RETRY_ON_ERROR  # automatic same-seed reruns of an errored sample
     token_limit: int | None = None  # the step's default token limit (`--token-limit` wins)
+    aux_models: tuple[str, ...] = ()  # other models the step calls (route check: qwen)
 
     @property
     def attempts(self) -> int:
@@ -95,9 +109,12 @@ class Ctx:
     token_limit: int | None
     model: Model | None = None
     display: str | None = None
+    reuse_cache: bool = False  # route check only: Inspect's local response cache on
 
 
 Launch = Callable[[Ctx], None]
+Exposure = Callable[[], tuple[float, str]]  # ($ worst case, how it was computed)
+Verify = Callable[[Ctx, list[Path]], None]  # raises CheckFailed
 
 
 @dataclass(frozen=True)
@@ -105,6 +122,8 @@ class Step:
     plan: Plan | None
     launch: Launch | None
     not_built: str = ""  # why the step refuses; empty when built
+    exposure: Exposure | None = None  # a step's own worst case (else runs x limit x attempts)
+    verify: Verify | None = None  # a check on the written log, after `record`
 
     @property
     def built(self) -> bool:
@@ -153,7 +172,55 @@ def launch_task_eval(ctx: Ctx) -> None:
     )
 
 
+def launch_route_check(ctx: Ctx) -> None:
+    """The route check (Task 30): one `inspect_ai.eval` of the tiny `route_check` task.
+    No automatic rerun: a failure is read and reported, never retried on another route."""
+    from .harness import route_check as rc
+    from .harness.routes import model_args_for
+
+    model = one_model(ctx.plan, ctx.model)
+    kw: dict[str, Any] = {}
+    if ctx.display is not None:
+        kw["display"] = ctx.display
+    inspect_eval(
+        rc.route_check(people_model=ctx.plan.aux_models[0], reuse_cache=ctx.reuse_cache),
+        model=model,
+        model_args=model_args_for(str(model)) if isinstance(model, str) else {},
+        log_dir=str(ctx.log_dir),
+        max_samples=1,
+        retry_on_error=ctx.plan.retry_on_error,
+        cost_limit=ctx.sample_cost_limit,
+        **kw,
+    )
+
+
+def route_check_exposure() -> tuple[float, str]:
+    from .harness import route_check as rc
+
+    return rc.worst_case()
+
+
+def verify_route_check(ctx: Ctx, paths: list[Path]) -> None:
+    """Print the PASS/FAIL table from the written log; raise `CheckFailed` on any FAIL."""
+    from inspect_ai.log import read_eval_log
+
+    from .harness import route_check as rc
+
+    if len(paths) != 1:
+        raise CheckFailed(
+            f"route check wrote {len(paths)} .eval logs, expected 1; {rc.FALLBACK_NOTE}"
+        )
+    rows = rc.check_log(
+        read_eval_log(str(paths[0]), resolve_attachments=True), reuse_cache=ctx.reuse_cache
+    )
+    print("route check:\n" + rc.table(rows))
+    if not rc.passed(rows):
+        failed = ", ".join(r.name for r in rows if not r.ok)
+        raise CheckFailed(f"route check FAILED ({failed}); {rc.FALLBACK_NOTE}")
+
+
 HAIKU = "anthropic/claude-haiku-5-5"
+PEOPLE = "openai-api/xpl/qwen3.7-flash"  # spec D4: the people role (harness/routes.py)
 FREE_TIER = 1_000_000  # Luna free tier: 1M tokens/day (spec §6 G-free)
 GFREE_TOKEN_LIMIT = 800_000  # spec §6 G-free
 LUNA = "openai-api/xpl/gpt-6-luna"
@@ -174,7 +241,13 @@ STEPS: dict[str, Step] = {
         ),
         launch_task_eval,
     ),
-    "route_check": Step(None, None, "the route-check script (2 Haiku calls + 1 qwen) is Task 30"),
+    # Task 30: 2 Haiku calls (same >= 5k-token prefix, one tool) + 1 qwen call; no rerun
+    "route_check": Step(
+        Plan((HAIKU,), "route_check", "-", "-", "-", retry_on_error=0, aux_models=(PEOPLE,)),
+        launch_route_check,
+        exposure=route_check_exposure,
+        verify=verify_route_check,
+    ),
     # Task 30: Haiku, decision window, seed 1001, dose $30k
     "smoke": Step(Plan((HAIKU,), "window", "1001", "3000000", max_samples=1), launch_task_eval),
     "pregen": Step(None, None, "pregen_people exists (Task 26); the runner launch is Task 31"),
@@ -285,6 +358,23 @@ def check_exposure(
     return f"${e:.4f} ({how})"
 
 
+def check_dollar_exposure(step: str, e: float, how: str, spent: float) -> str:
+    """A step's own $ worst case must fit its cap and the stop line (R25-2)."""
+    cap = STEP_CAPS[step]
+    if not math.isfinite(e) or e < 0:
+        raise BudgetError(f"{step} worst-case exposure is unknown")
+    if e > cap:
+        raise BudgetError(
+            f"{step} worst-case exposure ${e:.4f} ({how}) is over the {step} cap ${cap:.2f}"
+        )
+    if spent + e > STOP_LINE:
+        raise BudgetError(
+            f"spent ${spent:.4f} + worst-case exposure ${e:.4f} ({how}) is over the "
+            f"${STOP_LINE:.2f} stop line"
+        )
+    return f"${e:.4f} ({how})"
+
+
 def _plan_text(
     step: str,
     ctx: Ctx,
@@ -295,7 +385,7 @@ def _plan_text(
     token_source: str,
 ) -> str:
     p = ctx.plan
-    models = [str(one_model(p, ctx.model))]
+    models = [str(one_model(p, ctx.model)), *(f"{m} (people)" for m in p.aux_models)]
     token = f"{ctx.token_limit} ({token_source})" if ctx.token_limit is not None else "none"
     lines = [
         f"step:              {step}",
@@ -313,6 +403,11 @@ def _plan_text(
         f"gateway balance:   ${balance:.4f}",
         f"log dir:           {ctx.log_dir}",
     ]
+    if step == "route_check":
+        from .harness.route_check import REUSE_SCOPE
+
+        scope = ", ".join(f"{k}={v}" for k, v in sorted(REUSE_SCOPE.items()))
+        lines.append(f"local cache:       {f'on (scope {scope})' if ctx.reuse_cache else 'off'}")
     return "\n".join(lines)
 
 
@@ -329,13 +424,17 @@ def run_step(
     ledger_path: Path | None = None,
     transport: httpx.BaseTransport | None = None,
     display: str | None = None,
+    reuse_cache: bool = False,
 ) -> dict[str, Any] | None:
-    """Check, launch, record. Returns the ledger line (None for a dry run)."""
+    """Check, launch, record, then the step's own check (route check). Returns the ledger
+    line (None for a dry run)."""
     spec = STEPS.get(step)
     if spec is None:
         raise RunnerError(f"unknown step {step!r}")
     if not spec.built:
         raise RunnerError(f"step {step} is not built yet: {spec.not_built}")
+    if reuse_cache and step != "route_check":
+        raise RunnerError("--reuse-cache runs only with --step route_check")
     assert spec.plan is not None and spec.launch is not None
     one_model(spec.plan, model)  # X-1: refuse before any network call or ledger line
     if sample_cost_limit is None:
@@ -352,7 +451,10 @@ def run_step(
         token_limit = default_token_limit(ledger_path)
         token_source = "2 x smoke mean"
     spent = budget.spent(ledger_path=ledger_path)  # local; refuses on a missing/bad ledger
-    exposure_line = check_exposure(step, spec.plan, sample_cost_limit, token_limit, spent)
+    if spec.exposure is not None:
+        exposure_line = check_dollar_exposure(step, *spec.exposure(), spent)
+    else:
+        exposure_line = check_exposure(step, spec.plan, sample_cost_limit, token_limit, spent)
 
     balance = budget.guard(
         step, estimate, env_path=env_path, ledger_path=ledger_path, transport=transport
@@ -366,6 +468,7 @@ def run_step(
         token_limit=token_limit,
         model=model,
         display=display,
+        reuse_cache=reuse_cache,
     )
     print(
         ("DRY RUN (no eval launched)\n" if dry_run else "")
@@ -382,7 +485,7 @@ def run_step(
     if dry_run:
         return None
 
-    models = [str(one_model(spec.plan, model))]
+    models = [str(one_model(spec.plan, model)), *spec.plan.aux_models]
     runs = spec.plan.runs
     error: str | None = None
     try:
@@ -408,6 +511,8 @@ def run_step(
             f"recorded: {step} actual ${entry['actual']:.4f} ({entry['actual_source']}); "
             f"spent ${budget.spent(ledger_path=ledger_path):.4f} of ${STOP_LINE:.2f}"
         )
+    if spec.verify is not None:
+        spec.verify(ctx, paths)
     return entry
 
 
@@ -431,6 +536,53 @@ def list_models_cli(
     return 0
 
 
+def estimate_smoke_cli(args: argparse.Namespace) -> int:
+    """`--estimate-smoke`: T, I, O, h from `--from-log` (turns scaled to the window days),
+    each overridable by hand; Haiku prices from `configs/pricing.yaml`. No network, no
+    ledger line."""
+    from . import estimate
+
+    try:
+        given = {
+            "turns": args.turns,
+            "mean_input": args.mean_input,
+            "mean_output": args.mean_output,
+            "hit_share": args.hit_share,
+        }
+        values: dict[str, float] = {}
+        if args.from_log is not None:
+            m = estimate.measure_log(args.from_log)
+            t = estimate.window_turns(m)
+            print(
+                f"measured: {m.source} ({m.model}): turns {m.turns} over {m.days} days, "
+                f"I {m.mean_input:.0f}, O {m.mean_output:.0f}, h {m.hit_share:.3f}; "
+                f"T scaled to the window days = {t:.1f} (assumption: same turns per day)"
+            )
+            values = {
+                "turns": t,
+                "mean_input": m.mean_input,
+                "mean_output": m.mean_output,
+                "hit_share": m.hit_share,
+            }
+        values.update({k: v for k, v in given.items() if v is not None})
+        missing = [f"--{k.replace('_', '-')}" for k in given if k not in values]
+        if missing:
+            raise ValueError(f"give --from-log or all of {', '.join(missing)}")
+        dollars, lines = estimate.smoke_estimate(
+            values["turns"],
+            values["mean_input"],
+            values["mean_output"],
+            values["hit_share"],
+            estimate.haiku_prices(),
+        )
+    except (ValueError, OSError) as e:
+        print(f"REFUSED: {budget.redact(str(e))}", file=sys.stderr)
+        return 1
+    print("\n".join(lines))
+    print(f"smoke estimate: ${dollars:.4f} per run (Haiku, window; before the one rerun)")
+    return 0
+
+
 def main(
     argv: Sequence[str] | None = None,
     *,
@@ -442,7 +594,7 @@ def main(
     display: str | None = None,
 ) -> int:
     ap = argparse.ArgumentParser(prog="python -m temptation_bench.run")
-    ap.add_argument("--step", required=True, choices=list(STEP_CAPS))
+    ap.add_argument("--step", choices=list(STEP_CAPS))
     ap.add_argument("--estimate", type=float, default=None, help="$; must cover one rerun")
     ap.add_argument("--token-limit", type=int, default=None)
     ap.add_argument("--sample-cost-limit", type=float, default=None)
@@ -452,7 +604,23 @@ def main(
         action="store_true",
         help="route_check only: print the gateway's model ids (free metadata call) and exit",
     )
+    ap.add_argument(
+        "--reuse-cache",
+        action="store_true",
+        help="route_check only: Inspect's local response cache on, one fixed scope",
+    )
+    est = ap.add_argument_group("smoke estimate (DD §13.3; local arithmetic, no network)")
+    est.add_argument("--estimate-smoke", action="store_true", help="print the estimate and exit")
+    est.add_argument("--from-log", type=Path, default=None, help="a measured .eval (G-free)")
+    est.add_argument("--turns", type=float, default=None, help="T: turns per smoke run")
+    est.add_argument("--mean-input", type=float, default=None, help="I: input tokens/turn")
+    est.add_argument("--mean-output", type=float, default=None, help="O: output tokens/turn")
+    est.add_argument("--hit-share", type=float, default=None, help="h: cache-read share")
     args = ap.parse_args(argv)
+    if args.estimate_smoke:
+        return estimate_smoke_cli(args)
+    if args.step is None:
+        ap.error("--step is required (except with --estimate-smoke)")
     if args.list_models:
         return list_models_cli(args.step, env_path=env_path, transport=transport)
     if args.estimate is None:
@@ -470,7 +638,11 @@ def main(
             ledger_path=ledger_path,
             transport=transport,
             display=display,
+            reuse_cache=args.reuse_cache,
         )
+    except CheckFailed as e:
+        print(f"FAILED: {budget.redact(str(e))}", file=sys.stderr)
+        return 1
     except (BudgetError, RunnerError) as e:
         print(f"REFUSED: {budget.redact(str(e))}", file=sys.stderr)
         return 1

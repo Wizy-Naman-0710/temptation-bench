@@ -474,7 +474,7 @@ def test_runner_reruns_failed_once_and_keeps_failure(tmp_path, monkeypatch, env,
 
 
 def test_runner_refuses_unbuilt_steps_without_network(tmp_path, env, ledger):
-    for step in ("route_check", "pregen", "mini_batch", "full_run"):
+    for step in ("pregen", "mini_batch", "full_run"):  # route_check: built in Task 30
         with pytest.raises(run.RunnerError, match="not built"):
             run.run_step(
                 step,
@@ -490,7 +490,7 @@ def test_runner_refuses_unbuilt_steps_without_network(tmp_path, env, ledger):
 
 def test_dispatch_table_covers_every_step():
     assert set(run.STEPS) == set(STEP_CAPS)
-    assert {s for s, v in run.STEPS.items() if v.built} == {"gfree", "smoke"}
+    assert {s for s, v in run.STEPS.items() if v.built} == {"gfree", "route_check", "smoke"}
 
 
 def test_runner_unknown_step_rejected_by_cli(env, ledger):

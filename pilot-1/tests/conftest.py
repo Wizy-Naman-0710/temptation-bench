@@ -96,3 +96,24 @@ def no_provider_count_tokens(monkeypatch):
         for name in ("count_tokens", "count_text_tokens"):
             if name in cls.__dict__:
                 monkeypatch.setattr(cls, name, blocked(f"{cls.__name__}.{name}"))
+
+
+@pytest.fixture
+def allow_fake_client(monkeypatch):
+    """Task 30 (opt-in). `INSPECT_DISABLE_MODEL_API` refuses every non-mockllm generate.
+    Let through only a model whose SDK client `messages.create` is a local fake marked
+    `fake_client` (`tests/harness/test_route_check.py` `fake_haiku`); every other model
+    still refuses."""
+    from inspect_ai.model import Model
+
+    original = Model.verify_model_apis
+
+    def verify(self):
+        create = getattr(
+            getattr(getattr(self.api, "client", None), "messages", None), "create", None
+        )
+        if getattr(create, "fake_client", False):
+            return None
+        return original(self)
+
+    monkeypatch.setattr(Model, "verify_model_apis", verify)
