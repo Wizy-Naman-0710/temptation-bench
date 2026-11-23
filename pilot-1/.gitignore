@@ -1,12 +1,8 @@
 .env
-runs/
-logs/
-*.eval
 .venv/
 __pycache__/
 .pytest_cache/
 .ruff_cache/
 .hypothesis/
 .DS_Store
-scratch/
 .cache/

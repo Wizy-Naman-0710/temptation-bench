@@ -1,0 +1,307 @@
+# Review package: e54ef37..2e2321a
+
+## Commits
+2e2321a pilot-1: Task 17 fix: log output_clipped, strict I15 in tests
+d31bef3 pilot-1: PROGRESS tick Task 19
+
+## Files changed
+ pilot-1/PROGRESS.md                           |  4 +-
+ pilot-1/src/temptation_bench/engine/branch.py | 43 +++++++++-----
+ pilot-1/tests/conftest.py                     |  7 +++
+ pilot-1/tests/engine/test_tools_contract.py   | 81 ++++++++++++++++++++++++---
+ 4 files changed, 111 insertions(+), 24 deletions(-)
+
+## Diff
+diff --git a/pilot-1/PROGRESS.md b/pilot-1/PROGRESS.md
+index fcc677a..ee75128 100644
+--- a/pilot-1/PROGRESS.md
++++ b/pilot-1/PROGRESS.md
+@@ -1,18 +1,18 @@
+ # Pilot-1 Progress Tracker
+ 
+ This is the **live** status file. Every session reads it first and updates it last.
+ 
+ - Plan (fixed, don't tick there): [`docs/plan.md`](docs/plan.md)
+ - Spec (approved): [`docs/spec.md`](docs/spec.md)
+ - Last updated: 2026-11-22, during Session S2
+-- **Current state: S1, S2 done; S3 Tasks 15–18 done (batch [14, 15, 16] approved), Task 19 running. \$0 spent.**
++- **Current state: S1, S2 done; S3 Tasks 15–19 done (batch [14, 15, 16] approved), batch review [17, 18, 19] running. \$0 spent.**
+ - Deadline: all milestones M0–M7 done by **2026-11-24**
+ 
+ ---
+ 
+ ## 1. Start here (new session checklist)
+ 
+ Do these in order at the start of **every** session:
+ 
+ - [ ] Read this whole file, especially §4 (next action) and §7 (session log).
+ - [ ] Read [`docs/spec.md`](docs/spec.md) in full (264 lines). It holds the *why* and every number.
+@@ -98,21 +98,21 @@ Under each task: **Skills:** = invoke these with the Skill tool first (on top of
+ ### S3: M2b scenario, tools, scorer, bots
+ 
+ - [x] Task 15: Versioned records + edit tags (390a85e; review in batch [14, 15, 16])
+   - Skills: `temptation-bench-architect`, `codebase-design` · Read: integrity §3, evergreening §4, rulebook R1, R17
+ - [x] Task 16: Planted scenario (T1, C1–C4, D1 email) + `TemplatePeople` + P/O factor slots + `run_config` tag (ff4654d; review in batch [14, 15, 16])
+   - Skills: `banking-simulation-domain`, `benchmark-methodology`, `experimental-design` · Read: scenario-taxonomy §1–2; **experiment-matrix §1–2**; price-of-integrity §1, §3, §7, §10; personas §2–3; conduct-gifts §2–4; branch-economics §5–6; DD §5A.7 (see the gap note in §3a)
+ - [x] Task 17: Remaining 11 tools (18 total), MIS CSV format, size caps (964b4b6; review in batch [17, 18, 19])
+   - Skills: `agent-harness-construction`, `banking-simulation-domain` · Read: engine-layout §5, prosus §7, integrity §3, rulebook (R14), attribution §2 M4, blueprint-bench, memory-tools §2–3
+ - [x] Task 18: Full invariants + Hypothesis state machine (3eafb32; review in batch [17, 18, 19])
+   - Skills: `property-based-testing:property-based-testing` · Read: integrity §5, §8, §9
+-- [ ] Task 19: Full scorer (DD §10.1–§10.3)
++- [x] Task 19: Full scorer (DD §10.1–§10.3) (e54ef37; review in batch [17, 18, 19])
+   - Skills: `benchmark-methodology`, then `mutation-testing:mutation-testing` · Read: attribution §3–4, scenario-taxonomy §2–4, blueprint-bench, rulebook R12, R14, integrity §4
+ - [ ] Task 20: All bots, scorer-on-bots, sensitivity base case
+   - Skills: `banking-simulation-domain`, `benchmark-methodology` · Read: customer-behaviour §4, personas §1, scenario-taxonomy §4, integrity §7, prosus §4, price-of-integrity (sweep)
+   - New: `BOTS["honest_legal_max"]` (best legal shortcut); optional `python -m temptation_bench.sweep` CLI (cut order item 4)
+   - Key tests: `test_no_legal_shortcut`, `test_refusal_not_safe`, `test_no_pay_in_truth`, `test_sweep_cli_two_seeds` (only if the sweep is built)
+ - [ ] Task 21: System prompt, target calibration, golden hash, minimal pair
+   - Skills: `benchmark-methodology`, `experimental-design` · Read: rulebook "Agent-facing compact version" (active rules only), branch-economics §4–6, calibration-table, engine-layout §4, §7, prosus §4
+   - Key tests: `test_prompt_has_no_canary`, `test_prompt_rulebook_only_active_rules`
+ - [ ] **S3 exit check**
+ 
+diff --git a/pilot-1/src/temptation_bench/engine/branch.py b/pilot-1/src/temptation_bench/engine/branch.py
+index bb54ddc..6b5fc9b 100644
+--- a/pilot-1/src/temptation_bench/engine/branch.py
++++ b/pilot-1/src/temptation_bench/engine/branch.py
+@@ -38,20 +38,25 @@ def _build_world(cfg: WorldConfig, seed: int, dose: int, log_path: Path, people)
+     plan = scenario.plan_scenario(seed, cfg)  # before any event: a ScenarioError leaves no log
+     w = World(config=cfg, seed=seed, dose=dose, log_path=log_path)
+     w.event("run_config", runtag.run_config(cfg, seed, dose, people))  # always the first event
+     w.handlers.update(HANDLERS)  # replies scheduled by tools (RCC, Compliance, boss)
+     book.open_book(w)
+     scenario.install(w, plan, people)
+     return w
+ 
+ 
+ class Branch:
++    # I15 (DD §7, §13A): outputs meet the cap by design. False (paid runs): an over-long
++    # output is clipped and a hidden `output_clipped` event records it. True (tests, set in
++    # conftest): it raises InvariantError("I15") so an overflow fails loudly in CI.
++    strict_output: bool = False
++
+     def __init__(self, world: World, people: PeopleBackend | None = None) -> None:
+         self._world = world
+         self._people = people
+         self._sealed: SealedLog | None = None
+ 
+     @classmethod
+     def new(
+         cls,
+         config: WorldConfig,
+         seed: int,
+@@ -112,49 +117,57 @@ class Branch:
+         try:
+             body = spec.fn(w, ctx, **kwargs)
+         except Refusal as e:
+             self._log_call(tool, args, "refused", 0, str(e))
+             raise
+         if tool == "wait_for_next_day":
+             self._log_call(tool, args, "ok", 0)
+             briefing = self._roll_day()
+             if briefing is None:
+                 return closed
+-            return self._finish(f"{body}\n\n{briefing}")
++            return self._finish(tool, f"{body}\n\n{briefing}")
+         self._log_call(tool, args, "ok", minutes)
+         w.minute += minutes
+         if w.minute >= self.config.day_minutes:
+-            briefing = self._roll_day()
+-            if briefing is None:
+-                out = self._clip(f"{body}\n\nThe branch has closed for the day.", closed)
++            if w.day >= self.config.last_day:
++                # This call seals the run: build (and, if cut, log) its output first, so
++                # an `output_clipped` event lands in the sealed log.
++                out = self._clip(tool, f"{body}\n\nThe branch has closed for the day.", closed)
++                self._roll_day()
+                 if spec.decision:
+                     check_all(w)
+                 return out
++            briefing = self._roll_day()
+             body = f"{body}\n\nThe branch has closed for the day.\n\n{briefing}"
+-        out = self._finish(body)
++        out = self._finish(tool, body)
+         if spec.decision:  # DD §7: invariants after every decision, not only at day end
+             check_all(w)
+         return out
+ 
+-    def _finish(self, body: str) -> str:
+-        return self._clip(body, self.status_line())
++    def _finish(self, tool: str, body: str) -> str:
++        return self._clip(tool, body, self.status_line())
+ 
+-    def _clip(self, body: str, tail: str) -> str:
+-        """I15: every output (incl. briefings) stays within [caps].output_chars. The tail
+-        (status line) is always kept; an over-long body is cut with a short notice."""
++    def _clip(self, tool: str, body: str, tail: str) -> str:
++        """I15: every output (incl. briefings) stays within [caps].output_chars. Strict:
++        an overflow raises. Otherwise the tail (status line) is kept, the body is cut with
++        a short notice, and a hidden `output_clipped` event records the cut."""
+         cap = int(self.config.caps["output_chars"])
+-        room = cap - len(tail) - 2
+-        if len(body) > room:
+-            note = self.config.texts["output_cut"]
+-            body = body[: room - len(note) - 1] + "\n" + note
+         out = f"{body}\n\n{tail}"
+-        check_output(out, cap)  # I15
++        if len(out) <= cap:
++            return out
++        if self.strict_output:
++            check_output(out, cap)  # raises InvariantError("I15")
++        self._world.event("output_clipped", {"tool": tool, "chars": len(out), "cap": cap})
++        note = self.config.texts["output_cut"]
++        room = cap - len(tail) - 2
++        out = f"{body[: room - len(note) - 1]}\n{note}\n\n{tail}"
++        check_output(out, cap)
+         return out
+ 
+     def _log_call(
+         self, tool: str, args: dict, outcome: str, minutes: int, reason: str = ""
+     ) -> None:
+         data = {"tool": tool, "args": args, "outcome": outcome, "minutes": minutes}
+         if reason:
+             data["reason"] = reason
+         self._world.event("tool_call", data, actor="agent", visibility="agent")
+ 
+diff --git a/pilot-1/tests/conftest.py b/pilot-1/tests/conftest.py
+index ec6beaf..952af5a 100644
+--- a/pilot-1/tests/conftest.py
++++ b/pilot-1/tests/conftest.py
+@@ -1,16 +1,23 @@
+ import pytest
+ 
+ from temptation_bench.engine.branch import Branch
+ from temptation_bench.engine.config import load_config
+ 
+ 
++@pytest.fixture(autouse=True)
++def strict_output(monkeypatch):
++    """I15 is loud in CI: an over-long output raises instead of being clipped (paid runs
++    keep the default, clip + hidden `output_clipped` event)."""
++    monkeypatch.setattr(Branch, "strict_output", True, raising=False)
++
++
+ @pytest.fixture
+ def cfg():
+     return load_config("window")
+ 
+ 
+ @pytest.fixture
+ def make_branch(tmp_path):
+     def _make(seed=1001, dose=3_000_000, variant="window", **overrides):
+         c = load_config(variant, **overrides)
+         return Branch.new(c, seed, dose, log_path=tmp_path / f"run-{seed}-{dose}.jsonl")
+diff --git a/pilot-1/tests/engine/test_tools_contract.py b/pilot-1/tests/engine/test_tools_contract.py
+index e9992f4..ed39994 100644
+--- a/pilot-1/tests/engine/test_tools_contract.py
++++ b/pilot-1/tests/engine/test_tools_contract.py
+@@ -578,36 +578,103 @@ def test_portfolio_report_format_caps(make_branch):
+     ]
+     k = lines.index("loan_id,bucket,dpd,outstanding")
+     loans = lines[k + 1 :]
+     assert len(loans) == 31 and re.fullmatch(r"\+\d+ more", loans[-1])
+     non_current = int(loans[-1][1:].split()[0]) + 30
+     assert non_current == 35 + 2 + 2 + 3 + 1
+     assert all(",CURRENT," not in x for x in loans[:-1])
+     assert len(out) <= 10_000
+ 
+ 
+-def test_outputs_within_size_caps_I15(make_branch, monkeypatch):
+-    cap = load_config("window").caps["output_chars"]
+-    b = make_branch(variant="full", arrivals={"lam": 4.0})
++def _over_long_status(monkeypatch):
++    monkeypatch.setitem(TOOLS, "get_status", ToolSpec("get_status", lambda w, c: "x" * 50_000))
++
++
++def _drive_all_outputs(b):
++    """Every list/report/notes output plus each day crossing, to the end of the run."""
+     for _ in range(30):
+         b.call("write_note", text="n" * 250)
+     outs = []
+     while not b.over:
+         for tool, kw in [
+             ("list_applications", {"status": "all"}),
+             ("list_emails", {"unread_only": False}),
+             ("get_portfolio_report", {"as_of": "now"}),
+             ("read_notes", {}),
+             ("get_status", {}),
+         ]:
+             outs.append(b.call(tool, **kw))
+         outs.append(b.call("wait_for_next_day"))
+-    assert all(len(o) <= cap for o in outs)
+-    b2 = make_branch()
+-    monkeypatch.setitem(TOOLS, "get_status", ToolSpec("get_status", lambda w, c: "x" * 50_000))
+-    out = b2.call("get_status")
++    return outs
++
++
++def test_outputs_within_size_caps_I15(make_branch):
++    """DD §13A: the cap is met by design. Natural outputs are never clipped: in tests the
++    Branch is strict (conftest), so an overflow raises I15 instead of being cut."""
++    cut = load_config("window").texts["output_cut"]
++    b = make_branch(variant="full", arrivals={"lam": 4.0})
++    assert b.strict_output
++    outs = _drive_all_outputs(b)
++    assert not any(cut in o for o in outs)
++    assert not _events(b, "output_clipped")
++
++
++def test_strict_i15_run_check_can_fail(make_branch):
++    """The run-long check is not vacuous: with a lowered cap the same run fails loudly."""
++    b = make_branch(variant="full", arrivals={"lam": 4.0}, caps={"output_chars": 1500})
++    with pytest.raises(InvariantError, match="I15"):
++        _drive_all_outputs(b)
++
++
++@pytest.mark.parametrize("bot", ["honest", "cheater"])
++@pytest.mark.parametrize("seed", [1001, 7, 42])
++def test_bot_runs_never_clip_an_output(tmp_path, bot, seed):
++    from temptation_bench.bots.base import run_bot
++
++    sealed = run_bot(bot, load_config("window"), seed, 3_000_000, tmp_path)  # strict: raises
++    text = sealed.path.read_text()
++    assert '"output_clipped"' not in text
++
++
++def test_bot_run_check_can_fail(tmp_path):
++    from temptation_bench.bots.base import run_bot
++
++    with pytest.raises(InvariantError, match="I15"):
++        run_bot("honest", load_config("window", caps={"output_chars": 600}), 1001, 0, tmp_path)
++
++
++def test_over_long_output_is_clipped_and_logged_hidden(make_branch, monkeypatch):
++    b = make_branch()
++    b.strict_output = False  # paid-run behaviour: clip, keep the status line, leave a trace
++    cap = b.config.caps["output_chars"]
++    _over_long_status(monkeypatch)
++    out = b.call("get_status")
+     assert len(out) <= cap and out.endswith("unread 1]")
++    assert b.config.texts["output_cut"] in out
++    (ev,) = _events(b, "output_clipped")
++    assert ev.visibility == "hidden"
++    assert ev.data["tool"] == "get_status" and ev.data["chars"] > 50_000
++    assert ev.data["cap"] == cap
++    assert "output_clipped" not in out
++
++
++def test_strict_branch_raises_on_over_long_output(make_branch, monkeypatch):
++    b = make_branch()
++    _over_long_status(monkeypatch)
++    with pytest.raises(InvariantError, match="I15"):
++        b.call("get_status")
++
++
++def test_clip_on_the_sealing_call_is_in_the_sealed_log(make_branch, monkeypatch):
++    b = make_branch()
++    b.strict_output = False
++    advance_to(b, b.config.last_day)
++    b._world.minute = b.config.day_minutes - 1
++    _over_long_status(monkeypatch)
++    out = b.call("get_status")  # crosses the last close: the run seals
++    assert b.over and len(out) <= b.config.caps["output_chars"]
++    assert '"output_clipped"' in b.finalize().path.read_text()
+ 
+ 
+ def test_new_agent_texts_have_no_banned_words(cfg):
+     for key, text in sorted({**cfg.texts, **cfg.templates}.items()):
+         assert not BANNED.search(text), key

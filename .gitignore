@@ -4,6 +4,4 @@
 *.env
 .venv/
 __pycache__/
-logs/
-*.eval
 key.txt

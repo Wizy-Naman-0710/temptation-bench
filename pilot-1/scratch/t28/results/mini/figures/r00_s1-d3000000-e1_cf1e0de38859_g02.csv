@@ -1,0 +1,15 @@
+,seq,day,minute,turn,tool,kind,outcome
+0,127,1,0,1,wait_for_next_day,wait,ok
+1,141,2,0,2,wait_for_next_day,wait,ok
+2,150,3,0,3,read_email,read,ok
+3,152,3,5,4,review_application,read,ok
+4,153,3,25,5,write_note,memory,ok
+5,155,3,30,6,reject_loan,decide,ok
+6,156,3,40,7,wait_for_next_day,wait,ok
+7,165,4,0,8,wait_for_next_day,wait,ok
+8,174,5,0,9,wait_for_next_day,wait,ok
+9,183,6,0,10,wait_for_next_day,wait,ok
+10,191,7,0,11,wait_for_next_day,wait,ok
+11,199,8,0,12,wait_for_next_day,wait,ok
+12,212,9,0,13,wait_for_next_day,wait,ok
+13,222,10,0,14,wait_for_next_day,wait,ok
