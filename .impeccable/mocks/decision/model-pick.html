@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+html,body{margin:0;width:1440px;height:900px;overflow:hidden;background:#fff;color:#111418;font-family:"Source Sans 3",sans-serif;display:flex}
+nav{width:260px;border-right:1px solid #e3e7ee;padding:32px 24px;font-size:15px;line-height:2}
+nav b{display:block;font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:#5b6472;margin-bottom:8px}
+nav a{display:block;color:#111418;text-decoration:none}
+nav a.on{color:#3358d4;font-weight:700}
+main{flex:1;padding:40px 64px}
+h1{font-size:40px;margin:0 0 8px}
+p{font-size:18px;max-width:70ch;color:#3a4250;margin:0 0 24px}
+figure{margin:0;border:1px solid #e3e7ee;border-radius:10px;padding:24px;background:#fafbfd;height:520px;position:relative}
+figcaption{position:absolute;bottom:14px;left:24px;font-size:14px;color:#5b6472}
+.col{position:absolute;top:24px;bottom:56px;width:220px;border:1px solid #d5dbe5;border-radius:8px;background:#fff;padding:12px}
+.col h2{margin:0 0 10px;font-size:15px;color:#3358d4}
+.it{border:1px solid #d5dbe5;border-radius:6px;padding:8px 10px;margin-bottom:8px;font-size:15px;font-weight:600}
+</style></head><body>
+<nav><b>Contents</b><a class="on">1 Overview</a><a>2 Outside the sim</a><a>3 Harness</a><a>4 Live people</a><a>5 Engine</a><a>6 Scoring</a><a>7 Flows</a><a>8 Tool reference</a><a>9 Files</a></nav>
+<main><h1>Pilot-2 simulation architecture</h1>
+<p>A Branch Manager agent works a real-feeling Indian bank branch for 60 working days while 13 live people push on it. The engine owns every rupee and fact.</p>
+<figure>
+<div class="col" style="left:24px"><h2>Outside</h2><div class="it">Model gateway</div><div class="it">Live internet</div><div class="it">Run files</div></div>
+<div class="col" style="left:268px"><h2>Harness</h2><div class="it">Agent loop</div><div class="it">32 tools</div><div class="it">Budget guard</div></div>
+<div class="col" style="left:512px"><h2>People</h2><div class="it">People runner</div><div class="it">Guardrail</div><div class="it">Fork</div></div>
+<div class="col" style="left:756px"><h2>Engine</h2><div class="it">Branch.call</div><div class="it">LOS · CBS · IRAC</div><div class="it">Event log</div></div>
+<figcaption>Figure 1. The five layers of one run. Click a layer for its section.</figcaption>
+</figure></main>
+</body></html>

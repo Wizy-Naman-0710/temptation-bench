@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600;700&family=Source+Serif+4:opsz,wght@8..60,600&display=swap" rel="stylesheet">
+<style>
+html,body{margin:0;width:1440px;height:900px;overflow:hidden;background:#f5f7fa;color:#172033;font-family:"Source Sans 3",sans-serif}
+.top{display:flex;align-items:baseline;gap:24px;padding:28px 56px 0}
+.doc{font-size:13px;letter-spacing:.08em;color:#4a5568;text-transform:uppercase;font-weight:600}
+h1{font-family:"Source Serif 4",serif;font-size:44px;margin:6px 56px 4px;letter-spacing:-.01em}
+.lede{margin:0 56px;font-size:18px;max-width:72ch;color:#334155}
+.tabs{display:flex;gap:6px;margin:26px 56px 0;border-bottom:2px solid #172033}
+.tab{padding:10px 18px 8px;border:2px solid #172033;border-bottom:none;border-radius:8px 8px 0 0;font-weight:700;font-size:15px;background:#fff;position:relative;top:2px}
+.tab i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:8px}
+.tab.on{background:#172033;color:#fff}
+.chart{margin:0 56px;background:#fff;border:2px solid #172033;border-top:none;height:560px;position:relative}
+.lane{position:absolute;left:0;right:0;border-bottom:1px solid #d6dce5;display:flex;align-items:center}
+.lane b{width:150px;padding-left:18px;font-size:14px;text-transform:uppercase;letter-spacing:.06em}
+.box{position:absolute;background:#fff;border:2px solid #172033;border-radius:6px;padding:10px 14px;font-size:16px;font-weight:600;width:200px}
+.box small{display:block;font-weight:400;font-size:14px;color:#475569}
+.box.p{border-style:dashed}
+svg{position:absolute;inset:0}
+.key{position:absolute;right:20px;bottom:16px;font-size:13px;color:#475569;display:flex;gap:18px}
+</style></head><body>
+<div class="top"><span class="doc">Temptation-Bench · Pilot-2 · Proposal, can change</span></div>
+<h1>How one run of Pilot-2 works</h1>
+<p class="lede">A Branch Manager agent, 13 live people and a pure engine that owns every rupee. Pick a tab to open that part, or play a flow.</p>
+<div class="tabs">
+<span class="tab on"><i style="background:#fff"></i>Overview</span>
+<span class="tab"><i style="background:#b7791f"></i>Outside</span>
+<span class="tab"><i style="background:#2f6fb3"></i>Harness</span>
+<span class="tab"><i style="background:#7a4fc0"></i>People</span>
+<span class="tab"><i style="background:#2f8f5b"></i>Engine</span>
+<span class="tab"><i style="background:#b4234a"></i>Scoring</span>
+</div>
+<div class="chart">
+<div class="lane" style="top:0;height:110px"><b style="color:#b7791f">Outside</b></div>
+<div class="lane" style="top:110px;height:110px"><b style="color:#2f6fb3">Harness</b></div>
+<div class="lane" style="top:220px;height:110px"><b style="color:#7a4fc0">People</b></div>
+<div class="lane" style="top:330px;height:120px"><b style="color:#2f8f5b">Engine</b></div>
+<div class="lane" style="top:450px;height:110px;border:none"><b style="color:#b4234a">Scoring</b></div>
+<svg width="1328" height="560"><g stroke="#172033" stroke-width="2" fill="none">
+<path d="M300 92 V128"/><path d="M400 190 H560"/><path d="M660 190 V360"/><path d="M760 400 H900"/><path d="M1000 430 V470"/>
+<path d="M420 300 H560" stroke-dasharray="7 6"/><path d="M1000 400 H1100 V490" stroke-width="5" stroke="#fff"/><path d="M1000 400 H1100 V490"/></g></svg>
+<div class="box" style="left:200px;top:24px">Model gateway<small>Haiku 5.5 · Luna</small></div>
+<div class="box" style="left:200px;top:134px">Agent loop<small>the Branch Manager</small></div>
+<div class="box" style="left:560px;top:134px">32 tools<small>@tool → Branch.call</small></div>
+<div class="box p" style="left:200px;top:246px">People runner<small>guardrail · tape · fork</small></div>
+<div class="box" style="left:560px;top:358px">Branch.call<small>the one door</small></div>
+<div class="box" style="left:900px;top:358px">Event log<small>JSONL · SHA-256</small></div>
+<div class="box" style="left:900px;top:472px">score(events)<small>pure · ~35 signals</small></div>
+<div class="key"><span>── tool call</span><span>- - timer / wake</span><span>═ data written</span><span>dashed box = not built yet</span></div>
+</div>
+</body></html>

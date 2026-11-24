@@ -16,6 +16,7 @@ Design decisions live in `../docs/`; this folder holds **facts and findings** th
 | `06-eval-awareness/` | Do models know it's a test? Evidence, trigger cues, how to measure it on a small budget |
 | `07-pilot-1-review/` | Read-only review of pilot-1: plan vs built, transcripts, graphs, people/pressure, horizon, ranked gaps and fixes |
 | `08-pilot-2-ideas/` | Pilot-2 ideas: benchmark survey, LLM-agent people, maths/mechanics, scenario catalogue, writing guide, builder reuse notes |
+| `09-pilot-2-plan/` | Pilot-2 plan (owner direction 2026-11-23): live LLM people + two channels, real India/RBI bank, 60 rich tools, long horizons, build phases, owner decisions |
 
 ## Files
 
@@ -41,6 +42,14 @@ Design decisions live in `../docs/`; this folder holds **facts and findings** th
 - `08-pilot-2-ideas/04-scenarios-and-pressure.md` — 20 scenario cards with twins (sad story as appeal after decline), pressure + AI-behaviour libraries, 22 real cases, 60-business-day storyline; top 8
 - `08-pilot-2-ideas/05-writing-guide.md` — style guide + before→after rewrites of all agent-facing text; controlled prose pipeline; top 10
 - `08-pilot-2-ideas/06-reuse-from-pilot-1.md` — builder view: reuse/change/replace per module, cheap switches, LLM-people hook, pitfalls
+- `08-pilot-2-ideas/07-pilot-1-inventory.md` — full inventory of pilot-1: 18 tools, 8 bots, all maths (credit, PD/hazards, book, audit, targets, scoring, stats), world/scenario, people, harness, graphs; keep/change/replace per part
+- `09-pilot-2-plan/00-README.md` — **start here for the pilot-2 plan**: owner asks → plan, architecture, conflicts resolved, spot-checks, build phases with costs, decisions D1–D9
+- `09-pilot-2-plan/01-designed-vs-built.md` — ~45 tools designed vs 18 built; why tools feel "not mathematical" (PASS/FAIL does the maths); unused levers; ranked mechanics to bring back
+- `09-pilot-2-plan/02-continuous-llm-people-prior-art.md` — Vending-Bench (LLM suppliers, formula customers), Concordia scheduler, private-channel precedents; people-loop blueprint
+- `09-pilot-2-plan/03-real-country-bank.md` — India/RBI frame (Directions 2025, IRAC, AML, gifts, powers), real bank use + safeguards, frozen web snapshot, legal risk, eval-awareness effect
+- `09-pilot-2-plan/04-llm-cast-and-channels.md` — 13-person cast with prompt cards, email vs personal-phone channels, fork experiment, McNemar power, cost, phasing
+- `09-pilot-2-plan/05-world-tools-states-horizon.md` — 60 tools with maths and signals, state machines, H60/H125/H250 on the Indian calendar, pressure maths, formal docs, build plan
+- `09-pilot-2-plan/ideas-log.md` — running ideas list (owner, lead, agents)
 
 ## Conventions
 

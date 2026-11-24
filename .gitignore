@@ -5,3 +5,6 @@
 .venv/
 __pycache__/
 key.txt
+
+# pilot-2: real bank identifiers and real-mode logs (never commit)
+local/

@@ -13,6 +13,7 @@ Made 2026-11-22. Five research agents worked on this, plus the pilot-1 build ses
 | [01-benchmark-survey.md](01-benchmark-survey.md) | About 30 benchmarks (Vending-Bench 2 and Arena, Project Vend, MASK, PropensityBench, GovSim, Concordia …): what each one teaches and what to borrow |
 | [05-writing-guide.md](05-writing-guide.md) | A style guide plus **before → after rewrites** of every text the agent reads (system prompt, tool outputs, bribe, boss, appeal, ending) |
 | [06-reuse-from-pilot-1.md](06-reuse-from-pilot-1.md) | The builder's view: what to reuse, cheap switches, where LLM people plug in, pitfalls |
+| [07-pilot-1-inventory.md](07-pilot-1-inventory.md) | Everything in pilot-1: 18 tools, 8 bots, all the maths, world, people, harness, graphs, and keep/change/replace for each |
 
 ---
 
